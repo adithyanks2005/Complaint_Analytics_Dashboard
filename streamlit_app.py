@@ -66,6 +66,8 @@ if "is_admin"        not in st.session_state: st.session_state.is_admin        =
 if "login_step"      not in st.session_state: st.session_state.login_step      = 0   # 0=closed, 1=username, 2=password
 if "login_uid_input" not in st.session_state: st.session_state.login_uid_input = ""
 if "drawer_open"     not in st.session_state: st.session_state.drawer_open     = False
+if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
+
 
 # ── DB Helpers ─────────────────────────────────────────────────────────────────
 def get_connection() -> sqlite3.Connection:
@@ -374,14 +376,23 @@ with main_col:
             st.info("No complaints match filters")
 
     with tab_submit:
+        if st.session_state.submit_msg:
+            st.success(st.session_state.submit_msg)
+            st.session_state.submit_msg = None
+
         st.subheader("➕ Register New Complaint")
-        with st.form("new_complaint"):
+
+        if "form_key" not in st.session_state:
+            st.session_state.form_key = 0
+
+        with st.form("new_complaint", clear_on_submit=False):
             c1, c2, c3 = st.columns(3)
-            new_id       = c1.text_input("ID", value=f"CMP-{datetime.now().strftime('%H%M%S')}")
-            new_area     = c2.selectbox("Area", areas)
-            new_category = c3.selectbox("Category", categories)
-            new_date     = st.date_input("Date", value=date.today())
-            new_desc     = st.text_area("Description", placeholder="Min 10 characters")
+            new_id       = c1.text_input("ID", value=f"CMP-{datetime.now().strftime('%H%M%S')}", disabled=True)
+            new_area     = c2.selectbox("Area", areas, key=f"new_area_{st.session_state.form_key}")
+            new_category = c3.selectbox("Category", categories, key=f"new_category_{st.session_state.form_key}")
+            new_date     = st.date_input("Date", value=date.today(), key=f"new_date_{st.session_state.form_key}")
+            new_desc     = st.text_area("Description", placeholder="Min 10 characters", key=f"new_desc_{st.session_state.form_key}")
+
             if st.form_submit_button("Submit"):
                 if len(new_desc.strip()) < 10:
                     st.error("Description too short")
@@ -392,9 +403,12 @@ with main_col:
                                 "INSERT INTO complaints (id, created_date, area, category, status, description) VALUES (?,?,?,?,?,?)",
                                 (new_id.strip(), new_date.isoformat(), new_area, new_category, "Pending", new_desc.strip())
                             )
-                        st.success(f"Complaint {new_id} registered")
+                        st.session_state.submit_msg = f"Complaint {new_id} registered"
+                        # Increment form key to reset all fields
+                        st.session_state.form_key += 1
                         _refresh()
                         st.rerun()
+
                     except sqlite3.IntegrityError:
                         st.error("Complaint ID already exists")
 

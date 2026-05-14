@@ -42,12 +42,37 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 .page-header-sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; }
 .header-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .header-badge { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); border-radius: 50px; padding: 4px 12px; font-size: 0.72rem; color: #a5b4fc; font-weight: 600; display:inline-flex; align-items:center; gap:5px; }
-.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; }
-.kpi-card { background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px 16px; position: relative; overflow: hidden; transition: transform .2s; }
-.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6)); }
-.kpi-card:hover { transform: translateY(-3px); }
-.kpi-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; background: var(--icon-bg, rgba(99,102,241,0.15)); }
-.kpi-icon svg { display:block; }
+.kpi-grid { display: flex; gap: 12px; margin-bottom: 28px; align-items: flex-end; justify-content: center; perspective: 800px; }
+.kpi-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 18px 16px;
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease, z-index 0s;
+  transform-origin: bottom center;
+  cursor: default;
+  z-index: 1;
+}
+.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6)); border-radius: 16px 16px 0 0; }
+.kpi-grid:hover .kpi-card { transform: scale(0.95); filter: brightness(0.75); }
+.kpi-grid:hover .kpi-card:hover {
+  transform: scale(1.18) translateY(-10px);
+  filter: brightness(1);
+  z-index: 10;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.12), 0 8px 32px var(--glow, rgba(99,102,241,0.3));
+}
+.kpi-grid:hover .kpi-card:hover + .kpi-card,
+.kpi-grid:hover .kpi-card:has(+ .kpi-card:hover) {
+  transform: scale(1.07) translateY(-5px);
+  filter: brightness(0.9);
+  z-index: 5;
+}
+.kpi-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; background: var(--icon-bg, rgba(99,102,241,0.15)); flex-shrink: 0; }
+.kpi-icon svg { display:block; width:20px; height:20px; }
 .kpi-label { font-size: 0.68rem; color: #64748b; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; display: block; }
 .kpi-value { font-size: 1.75rem; font-weight: 800; line-height: 1.15; margin-top: 6px; display: block; }
 .kpi-sub { font-size: 0.68rem; color: #475569; margin-top: 6px; display: block; }
@@ -66,6 +91,8 @@ if "is_admin"        not in st.session_state: st.session_state.is_admin        =
 if "login_step"      not in st.session_state: st.session_state.login_step      = 0   # 0=closed, 1=username, 2=password
 if "login_uid_input" not in st.session_state: st.session_state.login_uid_input = ""
 if "drawer_open"     not in st.session_state: st.session_state.drawer_open     = False
+if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
+
 
 # ── DB Helpers ─────────────────────────────────────────────────────────────────
 def get_connection() -> sqlite3.Connection:
@@ -124,7 +151,7 @@ def _refresh():
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('## 📊 Analytics Dashboard')
+    st.markdown('## Analytics Dashboard')
     st.markdown("---")
 
     all_df = load_all()
@@ -132,7 +159,7 @@ with st.sidebar:
     categories = sorted(all_df["category"].dropna().unique().tolist())
     statuses   = sorted(all_df["status"].dropna().unique().tolist())
 
-    st.markdown("### 🔍 Filters")
+    st.markdown("### Filters")
     start_date = st.date_input("Start Date", value=date(2025, 1, 1))
     end_date   = st.date_input("End Date",   value=date.today())
 
@@ -143,19 +170,19 @@ with st.sidebar:
     sel_category = st.selectbox("Category", ["All", *categories])
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
-    apply = st.button("🔍 Apply Filters", use_container_width=True)
+    apply = st.button("Apply Filters", use_container_width=True)
 
     st.markdown("---")
 
     if st.session_state.is_admin:
-        st.success("🔓 Admin mode active")
+        st.success("Admin mode active")
         if st.button("Logout", use_container_width=True):
             st.session_state.is_admin    = False
             st.session_state.login_step  = 0
             st.session_state.drawer_open = False
             st.rerun()
     elif st.session_state.login_step == 1:
-        st.markdown("### 🔐 Admin Login")
+        st.markdown("### Admin Login")
         uid = st.text_input("Username", placeholder="Enter username", key="uid_field")
         c1, c2 = st.columns(2)
         with c1:
@@ -171,7 +198,7 @@ with st.sidebar:
                 st.session_state.login_step = 0
                 st.rerun()
     elif st.session_state.login_step == 2:
-        st.markdown(f"### 🔑 Hi, {st.session_state.login_uid_input}")
+        st.markdown(f"### Hi, {st.session_state.login_uid_input}")
         pwd = st.text_input("Password", type="password", placeholder="Enter password", key="pwd_field")
         c1, c2 = st.columns(2)
         with c1:
@@ -188,7 +215,7 @@ with st.sidebar:
                 st.session_state.login_step = 1
                 st.rerun()
     else:
-        if st.button("🔐 Admin Login", use_container_width=True):
+        if st.button("Admin Login", use_container_width=True):
             st.session_state.login_step = 1
             st.rerun()
 
@@ -246,15 +273,18 @@ main_col = st.container()
 with main_col:
     now_str    = datetime.now().strftime("%b %d, %Y · %H:%M")
     date_range = f"{start_date.strftime('%b %d')} → {end_date.strftime('%b %d, %Y')}"
-    admin_badge = '<span class="header-badge" style="background:rgba(99,102,241,0.3)">🔓 Admin</span>' if st.session_state.is_admin else ""
+    admin_badge = '<span class="header-badge" style="background:rgba(99,102,241,0.3)">Admin</span>' if st.session_state.is_admin else ""
 
     st.markdown(f"""
 <div class="page-header">
-  <div class="page-header-title">📊 Complaint Analytics</div>
+  <div class="page-header-title">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Complaint Analytics
+  </div>
   <div class="page-header-sub">Real-time public service complaint intelligence dashboard</div>
   <div class="header-badges">
-    <span class="header-badge">🕐 {now_str}</span>
-    <span class="header-badge">📅 {date_range}</span>
+    <span class="header-badge">&#128337; {now_str}</span>
+    <span class="header-badge">&#128197; {date_range}</span>
     {admin_badge}
   </div>
 </div>
@@ -262,32 +292,61 @@ with main_col:
 
     st.markdown(f"""
 <div class="kpi-grid">
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15)">
-    <div class="kpi-icon">📋</div>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15);--glow:rgba(99,102,241,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+      </svg>
+    </div>
     <span class="kpi-label">TOTAL COMPLAINTS</span>
     <span class="kpi-value" style="color:#f1f5f9">{total:,}</span>
     <span class="kpi-sub">In selected range</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15)">
-    <div class="kpi-icon">✅</div>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15);--glow:rgba(16,185,129,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+    </div>
     <span class="kpi-label">CLOSED</span>
     <span class="kpi-value" style="color:#6ee7b7">{len(closed_df):,}</span>
     <span class="kpi-sub">Fully resolved</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15)">
-    <div class="kpi-icon">⏳</div>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15);--glow:rgba(245,158,11,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+    </div>
     <span class="kpi-label">OPEN / PENDING</span>
     <span class="kpi-value" style="color:#fcd34d">{open_cnt:,}</span>
     <span class="kpi-sub">Awaiting resolution</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15)">
-    <div class="kpi-icon">⏱️</div>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15);--glow:rgba(59,130,246,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+      </svg>
+    </div>
     <span class="kpi-label">AVG CLOSURE TIME</span>
     <span class="kpi-value" style="color:#93c5fd">{avg_days:.1f} <span style="font-size:0.9rem;color:#64748b">days</span></span>
     <span class="kpi-sub">To close</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15)">
-    <div class="kpi-icon">📈</div>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15);--glow:rgba(139,92,246,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+        <polyline points="3 7 12 2 21 7"/>
+      </svg>
+    </div>
     <span class="kpi-label">CLOSURE RATE</span>
     <span class="kpi-value" style="color:#c4b5fd">{rate:.1f}<span style="font-size:0.9rem;color:#64748b">%</span></span>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{rate_w}%;background:linear-gradient(90deg,#8b5cf6,#a78bfa)"></div></div>
@@ -303,12 +362,12 @@ with main_col:
         legend=dict(bgcolor="rgba(0,0,0,0)"),
     )
 
-    tab_overview, tab_records, tab_submit = st.tabs(["📊 Overview", "📋 Records", "➕ Submit"])
+    tab_overview, tab_records, tab_submit = st.tabs(["Overview", "Records", "Raise Complaint"])
 
     with tab_overview:
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("📈 Monthly Trend")
+            st.subheader("Monthly Trend")
             if not trend_df.empty:
                 fig = go.Figure(go.Scatter(
                     x=trend_df["month"], y=trend_df["complaints"],
@@ -319,7 +378,7 @@ with main_col:
                 fig.update_layout(**CHART_LAYOUT, height=280)
                 st.plotly_chart(fig, use_container_width=True)
         with col2:
-            st.subheader("🗂️ Category Distribution")
+            st.subheader("Category Distribution")
             if not category_df.empty:
                 fig = go.Figure(go.Pie(
                     labels=category_df["category"], values=category_df["complaints"],
@@ -330,7 +389,7 @@ with main_col:
 
         col3, col4 = st.columns(2)
         with col3:
-            st.subheader("🏙️ Complaints by Area")
+            st.subheader("Complaints by Area")
             if not area_df.empty:
                 sorted_area = area_df.sort_values("complaints")
                 AREA_PALETTE = [
@@ -350,7 +409,7 @@ with main_col:
                 fig.update_layout(**CHART_LAYOUT, height=max(280, n * 36))
                 st.plotly_chart(fig, use_container_width=True)
         with col4:
-            st.subheader("⏱️ Avg Closure Days")
+            st.subheader("Avg Closure Days")
             if not area_df.empty and "avg_closure_days" in area_df.columns:
                 plot_df = area_df.dropna(subset=["avg_closure_days"])
                 fig = go.Figure(go.Bar(
@@ -361,7 +420,7 @@ with main_col:
                 st.plotly_chart(fig, use_container_width=True)
 
     with tab_records:
-        st.subheader("📋 Complaint Records")
+        st.subheader("Complaint Records")
         display_df = df.drop(columns=["closure_days"], errors="ignore").copy()
         for col in ["created_date", "closed_date"]:
             if col in display_df.columns:
@@ -369,19 +428,28 @@ with main_col:
         if not display_df.empty:
             st.dataframe(display_df, use_container_width=True, height=400)
             csv_data = display_df.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Export CSV", data=csv_data, file_name="complaints_export.csv", mime="text/csv")
+            st.download_button("Export CSV", data=csv_data, file_name="complaints_export.csv", mime="text/csv")
         else:
             st.info("No complaints match filters")
 
     with tab_submit:
-        st.subheader("➕ Register New Complaint")
-        with st.form("new_complaint"):
+        if st.session_state.submit_msg:
+            st.success(st.session_state.submit_msg)
+            st.session_state.submit_msg = None
+
+        st.subheader("Raise New Complaint")
+
+        if "form_key_f" not in st.session_state:
+            st.session_state.form_key_f = 0
+
+        with st.form("new_complaint", clear_on_submit=False):
             c1, c2, c3 = st.columns(3)
-            new_id       = c1.text_input("ID", value=f"CMP-{datetime.now().strftime('%H%M%S')}")
-            new_area     = c2.selectbox("Area", areas)
-            new_category = c3.selectbox("Category", categories)
-            new_date     = st.date_input("Date", value=date.today())
-            new_desc     = st.text_area("Description", placeholder="Min 10 characters")
+            new_id       = c1.text_input("ID", value=f"CMP-{datetime.now().strftime('%H%M%S')}", disabled=True)
+            new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
+            new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
+            new_date     = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
+            new_desc     = st.text_area("Description", placeholder="Min 10 characters", key=f"new_desc_f_{st.session_state.form_key_f}")
+
             if st.form_submit_button("Submit"):
                 if len(new_desc.strip()) < 10:
                     st.error("Description too short")
@@ -392,18 +460,21 @@ with main_col:
                                 "INSERT INTO complaints (id, created_date, area, category, status, description) VALUES (?,?,?,?,?,?)",
                                 (new_id.strip(), new_date.isoformat(), new_area, new_category, "Pending", new_desc.strip())
                             )
-                        st.success(f"Complaint {new_id} registered")
+                        st.session_state.submit_msg = f"Complaint {new_id} registered"
+                        # Increment form key to reset all fields
+                        st.session_state.form_key_f += 1
                         _refresh()
                         st.rerun()
+
                     except sqlite3.IntegrityError:
                         st.error("Complaint ID already exists")
 
 # ── Admin Panel (below dashboard when logged in) ───────────────────────────────
 if st.session_state.is_admin:
     st.markdown("---")
-    st.subheader("🛠️ Admin Panel")
+    st.subheader("Admin Panel")
 
-    tab_update, tab_delete = st.tabs(["✏️ Update Complaint", "🗑️ Delete Complaint"])
+    tab_update, tab_delete = st.tabs(["Update Complaint", "Delete Complaint"])
 
     with tab_update:
         if not df.empty:
@@ -417,14 +488,14 @@ if st.session_state.is_admin:
             upd_category = st.selectbox("Category", categories, index=categories.index(row["category"]), key="adm_cat")
             upd_closed   = st.date_input("Closed Date", value=date.today(), key="adm_closed") if upd_status == "Closed" else None
             upd_desc     = st.text_area("Description", value=row.get("description", ""), key="adm_desc")
-            if st.button("💾 Save Changes", use_container_width=True, key="adm_save"):
+            if st.button("Save Changes", use_container_width=True, key="adm_save"):
                 closed_val = upd_closed.isoformat() if upd_closed else None
                 with get_connection() as conn:
                     conn.execute(
                         "UPDATE complaints SET status=?, priority=?, area=?, category=?, closed_date=?, description=? WHERE id=?",
                         (upd_status, upd_priority, upd_area, upd_category, closed_val, upd_desc, sel_id)
                     )
-                st.success(f"✅ Updated {sel_id}")
+                st.success(f"Updated {sel_id}")
                 _refresh()
                 st.rerun()
         else:
@@ -434,7 +505,7 @@ if st.session_state.is_admin:
         if not df.empty:
             del_id = st.selectbox("Select to Delete", df["id"].tolist(), key="adm_del")
             st.warning(f"This will permanently delete **{del_id}**.")
-            if st.button("🗑️ Confirm Delete", type="primary", use_container_width=True, key="adm_del_btn"):
+            if st.button("Confirm Delete", type="primary", use_container_width=True, key="adm_del_btn"):
                 with get_connection() as conn:
                     conn.execute("DELETE FROM complaints WHERE id = ?", (del_id,))
                 st.success(f"Deleted {del_id}")
