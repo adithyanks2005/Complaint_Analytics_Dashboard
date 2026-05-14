@@ -53,7 +53,26 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 .page-header-title { font-size: 1.8rem; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; display:flex; align-items:center; gap:10px; }
 .page-header-sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; }
 .header-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.header-badge { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); border-radius: 50px; padding: 4px 12px; font-size: 0.72rem; color: #a5b4fc; font-weight: 600; display:inline-flex; align-items:center; gap:5px; }
+.header-badge { 
+  background: rgba(99,102,241,0.2); 
+  border: 1px solid rgba(99,102,241,0.4); 
+  border-radius: 50px; 
+  padding: 6px 16px; 
+  font-size: 0.75rem; 
+  color: #a5b4fc; 
+  font-weight: 600; 
+  display:inline-flex; 
+  align-items:center; 
+  gap:6px; 
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+}
+.header-badge:hover {
+  transform: scale(1.1) translateY(-3px);
+  background: rgba(99,102,241,0.3);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+  z-index: 10;
+}
 .kpi-grid { 
   display: flex; 
   gap: 12px; 
@@ -74,10 +93,17 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease, z-index 0s;
-  transform-origin: bottom center;
-  cursor: default;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  transform-origin: center center;
+  cursor: pointer;
   z-index: 1;
+}
+.kpi-card:hover {
+  transform: scale(1.08) translateY(-8px) rotate(0.5deg);
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%);
+  border-color: rgba(99,102,241,0.5);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  z-index: 50;
 }
 .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6)); border-radius: 16px 16px 0 0; }
 .kpi-grid:hover .kpi-card { transform: scale(0.95); filter: brightness(0.75); }
