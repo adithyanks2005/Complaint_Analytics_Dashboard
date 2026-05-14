@@ -1,6 +1,10 @@
 # 📊 Complaint Analytics Dashboard
 
-A real-time public service complaint intelligence dashboard built with **Streamlit**, **Plotly**, and **SQLite**. Visualize complaint trends, track resolution rates, and manage records — all without a backend server.
+A real-time public service complaint intelligence dashboard built with **Streamlit**, **FastAPI**, **Plotly**, and **SQLite**. Visualize complaint trends, track resolution rates, and manage records across a distributed cloud architecture.
+
+### 🌐 Live Links
+- **Production Dashboard**: [https://complaintanalyticsdashboard.streamlit.app/](https://complaintanalyticsdashboard.streamlit.app/)
+- **Backend API (Vercel)**: [https://complaint-analytics-dashboard-k20j.vercel.app/docs](https://complaint-analytics-dashboard-k20j.vercel.app/docs)
 
 ---
 
@@ -13,7 +17,8 @@ A real-time public service complaint intelligence dashboard built with **Streaml
 - **Admin Panel** — Secure 2-step login (username + password) to update or delete complaints
 - **Auto Refresh** — Dashboard updates automatically after every admin or user action
 - **CSV Export** — Download filtered complaint records as a CSV file
-- **Direct SQLite** — No backend API required; reads and writes directly to the database
+- **Full Stack Architecture** — Streamlit frontend hosted on Streamlit Cloud, talking to a FastAPI backend on Vercel
+- **Persistent SQLite** — Database logic optimized for serverless environments with /tmp storage support
 
 ---
 
@@ -22,6 +27,8 @@ A real-time public service complaint intelligence dashboard built with **Streaml
 | Layer | Technology |
 |-------|-----------|
 | Frontend | [Streamlit](https://streamlit.io/) |
+| Backend | [FastAPI](https://fastapi.tiangolo.com/) |
+| API Hosting | [Vercel](https://vercel.com/) |
 | Charts | [Plotly](https://plotly.com/python/) |
 | Database | SQLite (via Python `sqlite3`) |
 | Data | [Pandas](https://pandas.pydata.org/) |
