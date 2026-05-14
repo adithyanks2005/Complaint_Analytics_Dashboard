@@ -76,15 +76,6 @@ div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !imp
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
   box-shadow: inset 0 2px 0 0 var(--accent);
 }
-.kpi-card::after {
-  content: '';
-  position: absolute;
-  top: -50%; left: -50%; width: 200%; height: 200%;
-  background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.08) 50%, transparent 55%);
-  animation: shimmer 6s infinite linear;
-  pointer-events: none;
-}
-@keyframes shimmer { 0% { transform: translateX(-100%) translateY(-100%); } 100% { transform: translateX(100%) translateY(100%); } }
 .kpi-card:hover { 
   transform: scale(1.1) translateY(-10px); 
   z-index: 100; 

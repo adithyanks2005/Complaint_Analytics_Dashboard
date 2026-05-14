@@ -107,16 +107,6 @@ div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !imp
   transform-origin: bottom center;
   will-change: transform, filter;
 }
-.kpi-card::after {
-  content: '';
-  position: absolute;
-  top: -50%; left: -50%; width: 200%; height: 200%;
-  background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.08) 50%, transparent 55%);
-  animation: shimmer 6s infinite linear;
-  pointer-events: none;
-}
-@keyframes shimmer { 0% { transform: translateX(-100%) translateY(-100%); } 100% { transform: translateX(100%) translateY(100%); } }
-
 /* macOS Dock magnification — all cards shrink when grid is hovered */
 .kpi-grid:hover .kpi-card {
   transform: scale(0.93) translateY(4px);
