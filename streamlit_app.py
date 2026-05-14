@@ -175,6 +175,7 @@ div[data-testid="stTextArea"] textarea {
   background: transparent !important;
   border: none !important;
   color: #f1f5f9 !important;
+  resize: none !important; /* Removes the white resize handle */
 }
 
 div[data-testid="stTextInput"] [data-baseweb="base-input"]:focus-within {
