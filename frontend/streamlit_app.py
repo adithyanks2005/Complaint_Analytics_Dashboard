@@ -112,18 +112,27 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 * { outline: none !important; }
 *:focus, *:active, *:focus-visible { outline: none !important; box-shadow: none !important; }
 
-/* Target all Streamlit Input/Select/TextArea wrappers for consistent rounding */
+/* Target all Streamlit Input/Select/TextArea wrappers for consistent rounding & No White Lines */
 div[data-testid="stTextInput"] > div, 
 div[data-testid="stTextArea"] > div, 
 div[data-testid="stSelectbox"] > div,
 div[data-baseweb="input"], 
 div[data-baseweb="base-input"],
-div[data-baseweb="select"] {
+div[data-baseweb="select"],
+div[data-baseweb="select"] > div,
+div[role="combobox"],
+div[role="combobox"] > div {
   border-radius: 14px !important;
   border: none !important;
   background: transparent !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* Specific kill for the internal white borders on selectboxes */
+div[data-baseweb="select"] > div {
+    border: none !important;
+    box-shadow: none !important;
 }
 
 div[data-testid="stTextInput"] input, 
