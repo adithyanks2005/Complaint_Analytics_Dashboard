@@ -11,12 +11,16 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH  = BASE_DIR / "data" / "complaints.db"
 CSV_PATH = BASE_DIR / "data" / "sample_complaints.csv"
+
+# REPLACE THIS WITH YOUR ACTUAL VERCEL DOMAIN
+API_URL = "https://your-project-name.vercel.app"
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
@@ -128,6 +132,21 @@ init_db()
 
 @st.cache_data(ttl=30)
 def load_all() -> pd.DataFrame:
+    try:
+        resp = requests.get(f"{API_URL}/complaints", timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            if not data:
+                return pd.DataFrame(columns=["id", "created_date", "closed_date", "area", "category", "priority", "status", "description", "closure_days"])
+            df = pd.DataFrame(data)
+            df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
+            df["closed_date"]  = pd.to_datetime(df["closed_date"],  errors="coerce")
+            if "closure_days" not in df.columns:
+                df["closure_days"] = (df["closed_date"] - df["created_date"]).dt.days
+            return df
+    except Exception as e:
+        st.warning("Could not connect to API. Falling back to local database.")
+
     with get_connection() as conn:
         df = pd.read_sql_query("SELECT * FROM complaints", conn)
     df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
@@ -454,20 +473,26 @@ with main_col:
                 if len(new_desc.strip()) < 10:
                     st.error("Description too short")
                 else:
+                    payload = {
+                        "id": new_id.strip(),
+                        "created_date": new_date.isoformat(),
+                        "area": new_area,
+                        "category": new_category,
+                        "description": new_desc.strip()
+                    }
                     try:
-                        with get_connection() as conn:
-                            conn.execute(
-                                "INSERT INTO complaints (id, created_date, area, category, status, description) VALUES (?,?,?,?,?,?)",
-                                (new_id.strip(), new_date.isoformat(), new_area, new_category, "Pending", new_desc.strip())
-                            )
-                        st.session_state.submit_msg = f"Complaint {new_id} registered"
-                        # Increment form key to reset all fields
-                        st.session_state.form_key_f += 1
-                        _refresh()
-                        st.rerun()
-
-                    except sqlite3.IntegrityError:
-                        st.error("Complaint ID already exists")
+                        resp = requests.post(f"{API_URL}/complaints", json=payload)
+                        if resp.status_code == 201:
+                            st.session_state.submit_msg = f"Complaint {new_id} registered"
+                            st.session_state.form_key_f += 1
+                            _refresh()
+                            st.rerun()
+                        elif resp.status_code == 409:
+                            st.error("Complaint ID already exists")
+                        else:
+                            st.error(f"API Error: {resp.text}")
+                    except Exception as e:
+                        st.error(f"Failed to connect to API: {e}")
 
 # ── Admin Panel (below dashboard when logged in) ───────────────────────────────
 if st.session_state.is_admin:
@@ -490,14 +515,24 @@ if st.session_state.is_admin:
             upd_desc     = st.text_area("Description", value=row.get("description", ""), key="adm_desc")
             if st.button("Save Changes", use_container_width=True, key="adm_save"):
                 closed_val = upd_closed.isoformat() if upd_closed else None
-                with get_connection() as conn:
-                    conn.execute(
-                        "UPDATE complaints SET status=?, priority=?, area=?, category=?, closed_date=?, description=? WHERE id=?",
-                        (upd_status, upd_priority, upd_area, upd_category, closed_val, upd_desc, sel_id)
-                    )
-                st.success(f"Updated {sel_id}")
-                _refresh()
-                st.rerun()
+                payload = {
+                    "status": upd_status,
+                    "priority": upd_priority,
+                    "area": upd_area,
+                    "category": upd_category,
+                    "closed_date": closed_val,
+                    "description": upd_desc
+                }
+                try:
+                    resp = requests.put(f"{API_URL}/complaints/{sel_id}", json=payload)
+                    if resp.status_code == 200:
+                        st.success(f"Updated {sel_id}")
+                        _refresh()
+                        st.rerun()
+                    else:
+                        st.error(f"API Error: {resp.text}")
+                except Exception as e:
+                    st.error(f"Failed to connect to API: {e}")
         else:
             st.info("No complaints available.")
 
@@ -506,11 +541,16 @@ if st.session_state.is_admin:
             del_id = st.selectbox("Select to Delete", df["id"].tolist(), key="adm_del")
             st.warning(f"This will permanently delete **{del_id}**.")
             if st.button("Confirm Delete", type="primary", use_container_width=True, key="adm_del_btn"):
-                with get_connection() as conn:
-                    conn.execute("DELETE FROM complaints WHERE id = ?", (del_id,))
-                st.success(f"Deleted {del_id}")
-                _refresh()
-                st.rerun()
+                try:
+                    resp = requests.delete(f"{API_URL}/complaints/{del_id}")
+                    if resp.status_code == 200:
+                        st.success(f"Deleted {del_id}")
+                        _refresh()
+                        st.rerun()
+                    else:
+                        st.error(f"API Error: {resp.text}")
+                except Exception as e:
+                    st.error(f"Failed to connect to API: {e}")
         else:
             st.info("No complaints available.")
 
