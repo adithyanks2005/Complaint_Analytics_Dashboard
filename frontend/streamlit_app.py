@@ -51,86 +51,53 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* Page Header */
-.page-header { 
-  background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.1) 100%); 
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.1); 
-  border-radius: 24px; 
-  padding: 32px; 
-  margin-bottom: 32px; 
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-}
+.page-header { background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.08) 100%); border: 1px solid rgba(99,102,241,0.2); border-radius: 20px; padding: 24px 28px; margin-bottom: 28px; }
 .page-header-title { font-size: 1.8rem; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; display:flex; align-items:center; gap:10px; }
 .page-header-sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; }
 .header-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.header-badge {
-  background: rgba(99,102,241,0.2);
-  border: 1px solid rgba(99,102,241,0.4);
-  border-radius: 50px;
-  padding: 5px 13px 5px 9px;
-  font-size: 0.72rem;
-  color: #a5b4fc;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  line-height: 1;
-}
-.header-badge svg { flex-shrink: 0; }
-
-/* KPI Grid */
-.kpi-grid { display: flex; gap: 16px; margin-bottom: 32px; padding: 10px 0; align-items: stretch; justify-content: center; overflow: visible !important; }
-.kpi-card { 
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08); 
-  border-left: 4px solid var(--accent);
-  border-radius: 12px; 
-  padding: 20px; 
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.header-badge { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); border-radius: 50px; padding: 4px 12px; font-size: 0.72rem; color: #a5b4fc; font-weight: 600; display:inline-flex; align-items:center; gap:5px; }
+.kpi-grid { display: flex; gap: 12px; margin-bottom: 28px; align-items: flex-end; justify-content: center; perspective: 800px; }
+.kpi-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 18px 16px;
+  position: relative;
+  overflow: hidden;
   flex: 1;
   min-width: 0;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: visible;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease, z-index 0s;
+  transform-origin: bottom center;
+  cursor: default;
+  z-index: 1;
 }
-.kpi-card:hover { 
-  background: rgba(255,255,255,0.06);
-  transform: translateY(-5px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.4), 0 0 15px var(--glow);
+.kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6)); border-radius: 16px 16px 0 0; }
+.kpi-grid:hover .kpi-card { transform: scale(0.95); filter: brightness(0.75); }
+.kpi-grid:hover .kpi-card:hover {
+  transform: scale(1.18) translateY(-10px);
+  filter: brightness(1);
+  z-index: 10;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.12), 0 8px 32px var(--glow, rgba(99,102,241,0.3));
 }
-.kpi-icon { 
-  width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; 
-  background: var(--icon-bg, rgba(255,255,255,0.05)); 
-  font-size: 1.4rem; flex-shrink: 0;
+.kpi-grid:hover .kpi-card:hover + .kpi-card,
+.kpi-grid:hover .kpi-card:has(+ .kpi-card:hover) {
+  transform: scale(1.07) translateY(-5px);
+  filter: brightness(0.9);
+  z-index: 5;
 }
-.kpi-content { flex: 1; min-width: 0; }
-.kpi-label { font-size: 0.72rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.kpi-value { font-size: 1.6rem; font-weight: 800; color: white; display: block; margin: 2px 0; }
-.kpi-sub { font-size: 0.7rem; color: #64748b; }
+.kpi-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; background: var(--icon-bg, rgba(99,102,241,0.15)); flex-shrink: 0; }
+.kpi-icon svg { display:block; width:20px; height:20px; }
+.kpi-label { font-size: 0.68rem; color: #64748b; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; display: block; }
+.kpi-value { font-size: 1.75rem; font-weight: 800; line-height: 1.15; margin-top: 6px; display: block; }
+.kpi-sub { font-size: 0.68rem; color: #475569; margin-top: 6px; display: block; }
 .progress-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 99px; height: 6px; overflow: hidden; margin-top: 10px; }
 .progress-bar-fill { height: 100%; border-radius: 99px; }
-
-/* Tabs & Buttons */
-.stTabs [data-baseweb="tab-list"] { 
-  background: rgba(255,255,255,0.05); 
-  backdrop-filter: blur(10px);
-  border-radius: 16px; padding: 6px; gap: 8px; border: 1px solid rgba(255,255,255,0.1); 
-  margin-bottom: 24px;
-}
-.stTabs [data-baseweb="tab"] { 
-  border-radius: 12px; color: #94a3b8; font-weight: 700; font-size: 0.9rem; padding: 10px 24px; 
-  transition: all 0.3s ease;
-}
-.stTabs [aria-selected="true"] { 
-  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important; 
-  color: white !important;
-  box-shadow: 0 4px 15px rgba(99,102,241,0.4);
-}
+.stTabs [data-baseweb="tab-list"] { background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px; gap: 4px; border: 1px solid rgba(255,255,255,0.06); }
+.stTabs [data-baseweb="tab"] { border-radius: 8px; color: #94a3b8; font-weight: 600; font-size: 0.85rem; padding: 8px 18px; }
+.stTabs [aria-selected="true"] { background: linear-gradient(135deg, #6366f1, #8b5cf6) !important; color: white !important; }
 .stButton > button { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 10px; font-weight: 600; padding: 10px 22px; }
-.section-title { display:flex; align-items:center; gap:8px; font-size:1.1rem; font-weight:800; color:#f1f5f9; margin-bottom:12px; margin-top:10px; }
-.sidebar-section { display:flex; align-items:center; gap:7px; font-size:0.9rem; font-weight:700; color:#a5b4fc; margin:18px 0 10px 0; }
+.section-title { display:flex; align-items:center; gap:8px; font-size:1rem; font-weight:700; color:#e2e8f0; margin-bottom:4px; }
+.sidebar-section { display:flex; align-items:center; gap:7px; font-size:0.9rem; font-weight:700; color:#a5b4fc; margin:12px 0 8px 0; }
 div[data-testid="stTextInput"] input, div[data-testid="stTextArea"] textarea, div[data-testid="stSelectbox"] div[data-baseweb="select"] { 
   background: rgba(255,255,255,0.05) !important; 
   border: 1px solid rgba(255,255,255,0.1) !important; 
@@ -367,46 +334,66 @@ with main_col:
 """, unsafe_allow_html=True)
 
     st.markdown(f"""
+    st.markdown(f"""
 <div class="kpi-grid">
-  <div class="kpi-card" style="--accent:#6366f1;--glow:rgba(99,102,241,0.3)">
-    <div class="kpi-icon">📋</div>
-    <div class="kpi-content">
-      <span class="kpi-label">TOTAL</span>
-      <span class="kpi-value">{total:,}</span>
-      <span class="kpi-sub">Complaints</span>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15);--glow:rgba(99,102,241,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
+      </svg>
     </div>
+    <span class="kpi-label">TOTAL COMPLAINTS</span>
+    <span class="kpi-value" style="color:#f1f5f9">{total:,}</span>
+    <span class="kpi-sub">In selected range</span>
   </div>
-  <div class="kpi-card" style="--accent:#10b981;--glow:rgba(16,185,129,0.3)">
-    <div class="kpi-icon">✅</div>
-    <div class="kpi-content">
-      <span class="kpi-label">CLOSED</span>
-      <span class="kpi-value">{len(closed_df):,}</span>
-      <span class="kpi-sub">Resolved</span>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15);--glow:rgba(16,185,129,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
     </div>
+    <span class="kpi-label">CLOSED</span>
+    <span class="kpi-value" style="color:#6ee7b7">{len(closed_df):,}</span>
+    <span class="kpi-sub">Fully resolved</span>
   </div>
-  <div class="kpi-card" style="--accent:#f59e0b;--glow:rgba(245,158,11,0.3)">
-    <div class="kpi-icon">⏳</div>
-    <div class="kpi-content">
-      <span class="kpi-label">PENDING</span>
-      <span class="kpi-value">{open_cnt:,}</span>
-      <span class="kpi-sub">Awaiting</span>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15);--glow:rgba(245,158,11,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
     </div>
+    <span class="kpi-label">OPEN / PENDING</span>
+    <span class="kpi-value" style="color:#fcd34d">{open_cnt:,}</span>
+    <span class="kpi-sub">Awaiting resolution</span>
   </div>
-  <div class="kpi-card" style="--accent:#3b82f6;--glow:rgba(59,130,246,0.3)">
-    <div class="kpi-icon">⏱️</div>
-    <div class="kpi-content">
-      <span class="kpi-label">AVG TIME</span>
-      <span class="kpi-value">{avg_days:.1f} <span style="font-size:0.8rem">days</span></span>
-      <span class="kpi-sub">Closure</span>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15);--glow:rgba(59,130,246,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+      </svg>
     </div>
+    <span class="kpi-label">AVG CLOSURE TIME</span>
+    <span class="kpi-value" style="color:#93c5fd">{avg_days:.1f} <span style="font-size:0.9rem;color:#64748b">days</span></span>
+    <span class="kpi-sub">To close</span>
   </div>
-  <div class="kpi-card" style="--accent:#8b5cf6;--glow:rgba(139,92,246,0.3)">
-    <div class="kpi-icon">📈</div>
-    <div class="kpi-content">
-      <span class="kpi-label">RATE</span>
-      <span class="kpi-value">{rate:.1f}%</span>
-      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{rate_w}%;background:#8b5cf6"></div></div>
+  <div class="kpi-card" style="--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15);--glow:rgba(139,92,246,0.35)">
+    <div class="kpi-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+        <polyline points="3 7 12 2 21 7"/>
+      </svg>
     </div>
+    <span class="kpi-label">CLOSURE RATE</span>
+    <span class="kpi-value" style="color:#c4b5fd">{rate:.1f}<span style="font-size:0.9rem;color:#64748b">%</span></span>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{rate_w}%;background:linear-gradient(90deg,#8b5cf6,#a78bfa)"></div></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
