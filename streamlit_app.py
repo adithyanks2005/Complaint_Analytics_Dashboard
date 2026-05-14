@@ -412,7 +412,7 @@ with main_col:
             new_date     = st.date_input("Date", value=date.today(), key=f"new_date_{st.session_state.form_key}")
             new_desc     = st.text_area("Description", placeholder="Min 10 characters", key=f"new_desc_{st.session_state.form_key}")
 
-            if st.form_submit_button("Raise a Complaint"):
+            if st.form_submit_button("Submit"):
                 if len(new_desc.strip()) < 10:
                     st.error("Description too short")
                 else:
