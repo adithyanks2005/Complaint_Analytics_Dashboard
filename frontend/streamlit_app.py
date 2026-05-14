@@ -77,7 +77,7 @@ div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !imp
 .kpi-card {
   background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
+  border-radius: 22px;
   padding: 18px 16px;
   position: relative;
   overflow: visible;
@@ -98,7 +98,7 @@ div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !imp
   top: -1px; left: -1px; right: -1px;
   height: 4px;
   background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6));
-  border-radius: 16px 16px 0 0;
+  border-radius: 22px 22px 0 0;
 }
 
 /* macOS Dock magnification — all cards shrink when grid is hovered */

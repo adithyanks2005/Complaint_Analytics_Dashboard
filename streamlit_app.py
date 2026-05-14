@@ -49,8 +49,8 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 .header-badge:hover { transform: scale(1.1); background: rgba(99,102,241,0.4); }
 .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; padding: 15px 5px; overflow: visible !important; }
 div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !important; }
-.kpi-card { background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px 16px; position: relative; overflow: visible; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; cursor: default; }
-.kpi-card::before { content: ''; position: absolute; top: -1px; left: -1px; right: -1px; height: 4px; background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6)); border-radius: 16px 16px 0 0; }
+.kpi-card { background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 22px; padding: 18px 16px; position: relative; overflow: visible; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; cursor: default; }
+.kpi-card::before { content: ''; position: absolute; top: -1px; left: -1px; right: -1px; height: 4px; background: var(--accent, linear-gradient(90deg, #6366f1, #8b5cf6)); border-radius: 22px 22px 0 0; }
 .kpi-card:hover { transform: scale(1.15) translateY(-8px); z-index: 100; box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 20px var(--glow, rgba(99,102,241,0.2)); }
 .kpi-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; background: var(--icon-bg, rgba(99,102,241,0.15)); }
 .kpi-icon svg { display:block; }
