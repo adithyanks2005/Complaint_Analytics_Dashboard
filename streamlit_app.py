@@ -176,8 +176,13 @@ with st.sidebar:
             st.session_state.drawer_open = False
             st.rerun()
     elif st.session_state.login_step == 1:
+        def check_uid():
+            if st.session_state.uid_field.strip() == ADMIN_USERNAME:
+                st.session_state.login_uid_input = st.session_state.uid_field.strip()
+                st.session_state.login_step = 2
+
         st.markdown("### 🔐 Admin Login")
-        uid = st.text_input("Username", placeholder="Enter username", key="uid_field")
+        uid = st.text_input("Username", placeholder="Enter username", key="uid_field", on_change=check_uid)
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Next →", use_container_width=True, key="uid_next"):
@@ -192,8 +197,14 @@ with st.sidebar:
                 st.session_state.login_step = 0
                 st.rerun()
     elif st.session_state.login_step == 2:
+        def check_pwd():
+            if st.session_state.pwd_field == ADMIN_PASSWORD:
+                st.session_state.is_admin = True
+                st.session_state.login_step = 0
+                st.session_state.drawer_open = True
+
         st.markdown(f"### 🔑 Hi, {st.session_state.login_uid_input}")
-        pwd = st.text_input("Password", type="password", placeholder="Enter password", key="pwd_field")
+        pwd = st.text_input("Password", type="password", placeholder="Enter password", key="pwd_field", on_change=check_pwd)
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Login", use_container_width=True, key="pwd_login"):
