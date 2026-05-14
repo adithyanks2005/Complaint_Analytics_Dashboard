@@ -1,9 +1,0 @@
-{
-  "name": "complaint-dashboard",
-  "version": "1.0.0",
-  "scripts": {
-    "build": "true",
-    "vercel-build": "true",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  }
-}

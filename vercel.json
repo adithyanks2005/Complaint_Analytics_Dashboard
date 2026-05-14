@@ -1,7 +1,4 @@
 {
-  "installCommand": "echo \"Skipping install\"",
-  "buildCommand": "echo \"Skipping build\"",
-  "outputDirectory": "public",
   "builds": [
     {
       "src": "backend/main.py",
