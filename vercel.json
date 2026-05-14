@@ -1,6 +1,4 @@
 {
-  "installCommand": "pip install -r requirements.txt",
-  "buildCommand": "echo 'Build successful'",
   "builds": [
     {
       "src": "backend/main.py",
