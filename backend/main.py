@@ -45,6 +45,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Complaint Analytics Dashboard API",
+        "docs": "/docs",
+        "health": "/health",
+        "status": "online"
+    }
+
 _frontend_dir = Path(__file__).resolve().parents[1] / "frontend"
 if _frontend_dir.exists():
     app.mount("/app", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
@@ -105,6 +115,11 @@ def filtered_data(
     status:     str  | None = None,
 ):
     return filter_complaints(load_complaints(), start_date, end_date, area, category, status)
+
+
+@app.get("/")
+async def root():
+    return {"message": "Complaint Analytics API is running", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/health")
