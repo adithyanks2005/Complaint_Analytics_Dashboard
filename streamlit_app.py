@@ -47,50 +47,26 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 .header-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .header-badge { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); border-radius: 50px; padding: 4px 12px; font-size: 0.72rem; color: #a5b4fc; font-weight: 600; display:inline-flex; align-items:center; gap:5px; transition: transform 0.2s ease, background 0.2s ease; cursor: pointer; }
 .header-badge:hover { transform: scale(1.1); background: rgba(99,102,241,0.4); }
-.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 32px; padding: 15px 5px; overflow: visible !important; }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; padding: 15px 5px; overflow: visible !important; }
 div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !important; }
 .kpi-card { 
-    background: rgba(255, 255, 255, 0.04); 
-    backdrop-filter: blur(12px); 
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1); 
-    border-radius: 24px; 
-    padding: 24px 18px 18px 18px; 
-    position: relative; 
-    overflow: hidden; 
-    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); 
-    cursor: default; 
-    box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.3);
-}
-.kpi-card::before { 
-    content: ''; 
-    position: absolute; 
-    top: 0; 
-    left: 0; 
-    right: 0; 
-    height: 6px; 
-    background: linear-gradient(90deg, var(--accent, #6366f1), var(--glow, #a855f7));
-    border-radius: 0 0 0 0; /* Flush with top radius */
-    z-index: 10;
-    transition: height 0.3s ease;
+  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%); 
+  background-color: var(--tint, transparent);
+  border: 1px solid rgba(255,255,255,0.1); 
+  border-radius: 18px; 
+  padding: 22px 20px; 
+  position: relative; 
+  overflow: visible; 
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+  cursor: default;
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 .kpi-card:hover { 
-    transform: translateY(-12px) scale(1.03); 
-    background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), 0 0 20px var(--glow, rgba(99,102,241,0.2)); 
+  transform: scale(1.15) translateY(-8px); 
+  z-index: 100; 
+  box-shadow: inset 0 2px 0 0 var(--accent), 0 20px 40px rgba(0,0,0,0.4), 0 0 20px var(--glow, rgba(99,102,241,0.15)); 
 }
-.kpi-card:hover::before { 
-    height: 8px;
-}
-.kpi-icon { 
-    width: 42px; height: 42px; 
-    border-radius: 12px; 
-    display: flex; align-items: center; justify-content: center; 
-    margin-bottom: 12px; 
-    background: var(--icon-bg, rgba(99,102,241,0.12));
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
+.kpi-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; background: var(--icon-bg, rgba(99,102,241,0.15)); }
 .kpi-icon svg { display:block; }
 .kpi-label { font-size: 0.68rem; color: #64748b; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; display: block; }
 .kpi-value { font-size: 1.75rem; font-weight: 800; line-height: 1.15; margin-top: 6px; display: block; }
@@ -323,31 +299,31 @@ with main_col:
 
     st.markdown(f"""
 <div class="kpi-grid">
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15);--glow:rgba(99,102,241,0.3)">
+  <div class="kpi-card" style="--tint:rgba(99,102,241,0.05);--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15);--glow:rgba(99,102,241,0.3)">
     <div class="kpi-icon">📋</div>
     <span class="kpi-label">TOTAL COMPLAINTS</span>
     <span class="kpi-value" style="color:#f1f5f9">{total:,}</span>
     <span class="kpi-sub">In selected range</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15);--glow:rgba(16,185,129,0.3)">
+  <div class="kpi-card" style="--tint:rgba(16,185,129,0.05);--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15);--glow:rgba(16,185,129,0.3)">
     <div class="kpi-icon">✅</div>
     <span class="kpi-label">CLOSED</span>
     <span class="kpi-value" style="color:#6ee7b7">{len(closed_df):,}</span>
     <span class="kpi-sub">Fully resolved</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15);--glow:rgba(245,158,11,0.3)">
+  <div class="kpi-card" style="--tint:rgba(245,158,11,0.05);--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15);--glow:rgba(245,158,11,0.3)">
     <div class="kpi-icon">⏳</div>
     <span class="kpi-label">OPEN / PENDING</span>
     <span class="kpi-value" style="color:#fcd34d">{open_cnt:,}</span>
     <span class="kpi-sub">Awaiting resolution</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15);--glow:rgba(59,130,246,0.3)">
+  <div class="kpi-card" style="--tint:rgba(59,130,246,0.05);--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15);--glow:rgba(59,130,246,0.3)">
     <div class="kpi-icon">⏱️</div>
     <span class="kpi-label">AVG CLOSURE TIME</span>
     <span class="kpi-value" style="color:#93c5fd">{avg_days:.1f} <span style="font-size:0.9rem;color:#64748b">days</span></span>
     <span class="kpi-sub">To close</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15);--glow:rgba(139,92,246,0.3)">
+  <div class="kpi-card" style="--tint:rgba(139,92,246,0.05);--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15);--glow:rgba(139,92,246,0.3)">
     <div class="kpi-icon">📈</div>
     <span class="kpi-label">CLOSURE RATE</span>
     <span class="kpi-value" style="color:#c4b5fd">{rate:.1f}<span style="font-size:0.9rem;color:#64748b">%</span></span>

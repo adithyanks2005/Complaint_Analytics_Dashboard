@@ -75,38 +75,21 @@ section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
 }
 div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !important; }
 .kpi-card {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 24px 18px 18px 18px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+  background-color: var(--tint, transparent);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 22px 20px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   flex: 1;
   min-width: 0;
   cursor: default;
   z-index: 1;
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: inset 0 2px 0 0 var(--accent);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: bottom center;
   will-change: transform, filter;
-  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.3);
-}
-
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: linear-gradient(90deg, var(--accent, #6366f1), var(--glow, #a855f7));
-  z-index: 10;
-  transition: height 0.3s ease;
-}
-
-.kpi-card:hover::before {
-  height: 8px;
 }
 
 /* macOS Dock magnification — all cards shrink when grid is hovered */
@@ -120,6 +103,7 @@ div[data-testid="stVerticalBlock"] > div:has(.kpi-grid) { overflow: visible !imp
   filter: brightness(1);
   z-index: 20;
   box-shadow:
+    inset 0 2px 0 0 var(--accent),
     0 24px 64px rgba(0,0,0,0.55),
     0 0 0 1px rgba(255,255,255,0.13),
     0 8px 32px var(--glow, rgba(99,102,241,0.3));
@@ -385,7 +369,7 @@ with main_col:
 
     st.markdown(f"""
 <div class="kpi-grid">
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15);--glow:rgba(99,102,241,0.35)">
+  <div class="kpi-card" style="--tint:rgba(99,102,241,0.05);--accent:linear-gradient(90deg,#6366f1,#8b5cf6);--icon-bg:rgba(99,102,241,0.15);--glow:rgba(99,102,241,0.35)">
     <div class="kpi-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
@@ -397,7 +381,7 @@ with main_col:
     <span class="kpi-value" style="color:#f1f5f9">{total:,}</span>
     <span class="kpi-sub">In selected range</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15);--glow:rgba(16,185,129,0.35)">
+  <div class="kpi-card" style="--tint:rgba(16,185,129,0.05);--accent:linear-gradient(90deg,#10b981,#34d399);--icon-bg:rgba(16,185,129,0.15);--glow:rgba(16,185,129,0.35)">
     <div class="kpi-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
@@ -408,7 +392,7 @@ with main_col:
     <span class="kpi-value" style="color:#6ee7b7">{len(closed_df):,}</span>
     <span class="kpi-sub">Fully resolved</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15);--glow:rgba(245,158,11,0.35)">
+  <div class="kpi-card" style="--tint:rgba(245,158,11,0.05);--accent:linear-gradient(90deg,#f59e0b,#fbbf24);--icon-bg:rgba(245,158,11,0.15);--glow:rgba(245,158,11,0.35)">
     <div class="kpi-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
@@ -419,7 +403,7 @@ with main_col:
     <span class="kpi-value" style="color:#fcd34d">{open_cnt:,}</span>
     <span class="kpi-sub">Awaiting resolution</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15);--glow:rgba(59,130,246,0.35)">
+  <div class="kpi-card" style="--tint:rgba(59,130,246,0.05);--accent:linear-gradient(90deg,#3b82f6,#60a5fa);--icon-bg:rgba(59,130,246,0.15);--glow:rgba(59,130,246,0.35)">
     <div class="kpi-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -432,7 +416,7 @@ with main_col:
     <span class="kpi-value" style="color:#93c5fd">{avg_days:.1f} <span style="font-size:0.9rem;color:#64748b">days</span></span>
     <span class="kpi-sub">To close</span>
   </div>
-  <div class="kpi-card" style="--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15);--glow:rgba(139,92,246,0.35)">
+  <div class="kpi-card" style="--tint:rgba(139,92,246,0.05);--accent:linear-gradient(90deg,#8b5cf6,#a78bfa);--icon-bg:rgba(139,92,246,0.15);--glow:rgba(139,92,246,0.35)">
     <div class="kpi-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
