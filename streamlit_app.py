@@ -726,11 +726,10 @@ with main_col:
             st.session_state.form_key_f = 0
 
         with st.form("new_complaint", clear_on_submit=False):
-            c1, c2, c3 = st.columns(3)
-            new_id       = c1.text_input("ID", value=f"CMP-{datetime.now().strftime('%H%M%S')}", disabled=True)
-            new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
+            c1, c2 = st.columns(2)
+            new_area     = c1.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
             # Date input removed – using server time (synchronized with client)
-            new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
+            new_category = c2.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
 
 
             new_desc     = st.text_area("Description", placeholder="Min 10 characters", key=f"new_desc_f_{st.session_state.form_key_f}")
@@ -741,8 +740,7 @@ with main_col:
                     st.error("Description too short")
                 else:
                     try:
-                        insert_complaint({
-                            "id": new_id.strip(),
+                        created_record = insert_complaint({
                             "created_date": datetime.now().astimezone().isoformat(),
                             "closed_date": None,
                             "area": new_area,
@@ -751,7 +749,7 @@ with main_col:
                             "status": "Pending",
                             "description": new_desc.strip(),
                         })
-                        st.session_state.submit_msg = f"Complaint {new_id} registered"
+                        st.session_state.submit_msg = f"Complaint {created_record['id']} registered"
                         st.session_state.form_key_f += 1
                         _refresh()
                         st.rerun()

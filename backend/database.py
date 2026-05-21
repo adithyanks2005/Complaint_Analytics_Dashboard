@@ -81,6 +81,39 @@ def _is_duplicate_error(exc: Exception) -> bool:
     return "23505" in message or "duplicate key" in message or "unique constraint" in message
 
 
+def generate_next_id() -> str:
+    """Return the smallest positive integer ID not currently used.
+    IDs follow the pattern 'CMP-<number>'. This function extracts the numeric part and finds the smallest unused number.
+    """
+    with get_connection() as conn:
+        rows = conn.execute("SELECT id FROM complaints").fetchall()
+        used = set()
+        for row in rows:
+            id_str = str(row["id"]).strip()
+            if "-" in id_str:
+                suffix = id_str.split("-")[-1]
+                if suffix.isdigit():
+                    used.add(int(suffix))
+        # If there are existing IDs without hyphen, ignore them for numeric generation.
+    i = 1
+    while i in used:
+        i += 1
+    return f"CMP-{i:03d}"
+
+
+def generate_next_id_supabase() -> str:
+    """Generate next ID using Supabase backend when applicable."""
+    client = get_supabase_client()
+    response = client.table(SUPABASE_TABLE).select("id").execute()
+    ids = [rec["id"] for rec in (response.data or [])]
+    used = {int(id.split('-')[-1]) for id in ids if id.split('-')[-1].isdigit()}
+    i = 1
+    while i in used:
+        i += 1
+    return f"CMP-{i:03d}"
+
+
+
 def get_connection() -> sqlite3.Connection:
     """Return a thread-safe SQLite connection with WAL mode and Row factory."""
     connection = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -218,6 +251,9 @@ def get_complaint_by_id(complaint_id: str) -> dict[str, object] | None:
 
 def insert_complaint(record: dict[str, object]) -> dict[str, object]:
     init_db()
+    # Ensure ID is present; generate if missing
+    if not record.get("id"):
+        record["id"] = generate_next_id_supabase() if using_supabase() else generate_next_id()
     record = _normalise_record(record)
     try:
         if using_supabase():

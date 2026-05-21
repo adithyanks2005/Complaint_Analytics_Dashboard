@@ -127,3 +127,54 @@ def test_admin_can_close_resolved_complaint():
     assert response.json()["status"] == "Closed"
 
     client.delete(f"/complaints/{complaint_id}")
+
+
+def test_auto_generated_id_and_reuse():
+    # Insert first complaint without ID
+    payload1 = {
+        "created_date": "2026-05-20",
+        "area":         "North Zone",
+        "category":     "Water Supply",
+        "description":  "Test auto ID generation 1",
+    }
+    resp1 = client.post("/complaints", json=payload1)
+    assert resp1.status_code == 201
+    created1 = resp1.json()
+    id1 = created1["id"]
+    assert id1.startswith("CMP-")
+
+    # Insert second complaint without ID
+    payload2 = {
+        "created_date": "2026-05-21",
+        "area":         "South Zone",
+        "category":     "Drainage",
+        "description":  "Test auto ID generation 2",
+    }
+    resp2 = client.post("/complaints", json=payload2)
+    assert resp2.status_code == 201
+    created2 = resp2.json()
+    id2 = created2["id"]
+    assert id2.startswith("CMP-")
+    assert id1 != id2
+
+    # Delete the first complaint
+    delete_resp = client.delete(f"/complaints/{id1}")
+    assert delete_resp.status_code == 200
+
+    # Insert third complaint, it should reuse the first ID
+    payload3 = {
+        "created_date": "2026-05-22",
+        "area":         "East Zone",
+        "category":     "Garbage",
+        "description":  "Test auto ID reuse",
+    }
+    resp3 = client.post("/complaints", json=payload3)
+    assert resp3.status_code == 201
+    created3 = resp3.json()
+    id3 = created3["id"]
+    
+    assert id3 == id1
+
+    # Cleanup
+    client.delete(f"/complaints/{id2}")
+    client.delete(f"/complaints/{id3}")
