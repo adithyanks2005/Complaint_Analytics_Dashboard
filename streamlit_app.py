@@ -1,16 +1,31 @@
 """
 Complaint Analytics Dashboard - Streamlit Frontend
-Talks directly to the SQLite database (no backend required)
+Uses Supabase when configured, with SQLite as the local fallback
 """
 from __future__ import annotations
 
-import sqlite3
+import sys
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+if not (PROJECT_ROOT / "backend").exists():
+    PROJECT_ROOT = PROJECT_ROOT.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from backend.database import (
+    DuplicateComplaintError,
+    delete_complaint_record,
+    insert_complaint,
+    init_db,
+    read_complaints_df,
+    update_complaint_record,
+)
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Resolve data/ folder regardless of where Streamlit launches the script from.
@@ -297,54 +312,16 @@ if "drawer_open"     not in st.session_state: st.session_state.drawer_open     =
 if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
 
 
-# ── DB Helpers ─────────────────────────────────────────────────────────────────
-def get_connection() -> sqlite3.Connection:
-    try:
-        conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=10)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        return conn
-    except Exception as e:
-        st.error(f"Failed to connect to database: {e}")
-        raise
-
-
-def init_db() -> None:
-    try:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with get_connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS complaints (
-                    id           TEXT PRIMARY KEY,
-                    created_date TEXT NOT NULL,
-                    closed_date  TEXT,
-                    area         TEXT NOT NULL,
-                    category     TEXT NOT NULL,
-                    priority     TEXT,
-                    status       TEXT NOT NULL DEFAULT 'Pending',
-                    description  TEXT NOT NULL
-                )
-            """)
-            count = conn.execute("SELECT COUNT(*) FROM complaints").fetchone()[0]
-            if count == 0 and CSV_PATH.exists():
-                try:
-                    df = pd.read_csv(CSV_PATH)
-                    df.to_sql("complaints", conn, if_exists="append", index=False)
-                    conn.commit()
-                except Exception as e:
-                    st.warning(f"Could not load sample data: {e}")
-    except Exception as e:
-        st.error(f"Database initialization failed: {e}")
-
-
-init_db()
+# ── Data Helpers ───────────────────────────────────────────────────────────────
+try:
+    init_db()
+except Exception as e:
+    st.error(f"Database initialization failed: {e}")
 
 
 @st.cache_data(ttl=30)
 def load_all() -> pd.DataFrame:
-    with get_connection() as conn:
-        df = pd.read_sql_query("SELECT * FROM complaints", conn)
+    df = read_complaints_df()
     df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
     df["closed_date"]  = pd.to_datetime(df["closed_date"],  errors="coerce")
     df["closure_days"] = (df["closed_date"] - df["created_date"]).dt.days
@@ -764,17 +741,21 @@ with main_col:
                     st.error("Description too short")
                 else:
                     try:
-                        with get_connection() as conn:
-                            conn.execute("""
-                                INSERT INTO complaints (id, created_date, area, category, status, description)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            """, (new_id.strip(), datetime.now().astimezone().isoformat(), new_area, new_category, "Pending", new_desc.strip()))
-                            conn.commit()
+                        insert_complaint({
+                            "id": new_id.strip(),
+                            "created_date": datetime.now().astimezone().isoformat(),
+                            "closed_date": None,
+                            "area": new_area,
+                            "category": new_category,
+                            "priority": None,
+                            "status": "Pending",
+                            "description": new_desc.strip(),
+                        })
                         st.session_state.submit_msg = f"Complaint {new_id} registered"
                         st.session_state.form_key_f += 1
                         _refresh()
                         st.rerun()
-                    except sqlite3.IntegrityError:
+                    except DuplicateComplaintError:
                         st.error("Complaint ID already exists")
                     except Exception as e:
                         st.error(f"Failed to save complaint: {e}")
@@ -806,13 +787,15 @@ if st.session_state.is_admin:
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):
                     closed_val = upd_closed.isoformat() if upd_closed else None
                     try:
-                        with get_connection() as conn:
-                            conn.execute("""
-                                UPDATE complaints
-                                SET status = ?, priority = ?, area = ?, category = ?, closed_date = ?, description = ?
-                                WHERE id = ?
-                            """, (upd_status, upd_priority, upd_area, upd_category, closed_val, upd_desc, sel_id))
-                            conn.commit()
+                        update_complaint_record(sel_id, {
+                            "created_date": row["created_date"].strftime("%Y-%m-%d") if pd.notna(row["created_date"]) else date.today().isoformat(),
+                            "closed_date": closed_val,
+                            "area": upd_area,
+                            "category": upd_category,
+                            "priority": upd_priority,
+                            "status": upd_status,
+                            "description": upd_desc,
+                        })
                         st.success(f"Updated {sel_id}")
                         _refresh()
                         st.rerun()
@@ -827,9 +810,7 @@ if st.session_state.is_admin:
             st.warning(f"This will permanently delete **{del_id}**.")
             if st.button("Confirm Delete", type="primary", use_container_width=True, key="adm_del_btn"):
                 try:
-                    with get_connection() as conn:
-                        conn.execute("DELETE FROM complaints WHERE id = ?", (del_id,))
-                        conn.commit()
+                    delete_complaint_record(del_id)
                     st.success(f"Deleted {del_id}")
                     _refresh()
                     st.rerun()
@@ -837,5 +818,3 @@ if st.session_state.is_admin:
                     st.error(f"Failed to delete complaint: {e}")
         else:
             st.info("No complaints available.")
-
-

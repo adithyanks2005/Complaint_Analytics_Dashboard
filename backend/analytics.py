@@ -8,11 +8,14 @@ from backend.database import read_complaints_df
 
 
 def load_complaints() -> pd.DataFrame:
-    df = read_complaints_df()
-    df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
-    df["closed_date"]  = pd.to_datetime(df["closed_date"], errors="coerce")
-    df["closure_days"] = (df["closed_date"] - df["created_date"]).dt.days
-    return df
+    df = read_complaints_df().copy()
+    created_date = pd.to_datetime(df["created_date"], errors="coerce")
+    closed_date = pd.to_datetime(df["closed_date"], errors="coerce")
+    return df.assign(
+        created_date=created_date,
+        closed_date=closed_date,
+        closure_days=(closed_date - created_date).dt.days,
+    )
 
 
 def filter_complaints(

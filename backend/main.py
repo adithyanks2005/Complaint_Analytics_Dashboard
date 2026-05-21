@@ -22,7 +22,14 @@ from backend.analytics import (
     records,
     summary_metrics,
 )
-from backend.database import get_connection, init_db, row_to_dict
+from backend.database import init_db
+from backend.database import (
+    DuplicateComplaintError,
+    delete_complaint_record,
+    get_complaint_by_id,
+    insert_complaint,
+    update_complaint_record,
+)
 
 
 @asynccontextmanager
@@ -162,12 +169,7 @@ def export_complaints(
 
 @app.get("/complaints/{complaint_id}")
 def get_complaint(complaint_id: str) -> dict[str, object]:
-    init_db()
-    with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM complaints WHERE id = ?", (complaint_id,)
-        ).fetchone()
-    complaint = row_to_dict(row)
+    complaint = get_complaint_by_id(complaint_id)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
     return complaint
@@ -175,31 +177,23 @@ def get_complaint(complaint_id: str) -> dict[str, object]:
 
 @app.post("/complaints", status_code=status.HTTP_201_CREATED)
 def create_complaint(payload: ComplaintCreate) -> dict[str, object]:
-    init_db()
     try:
-        with get_connection() as connection:
-            connection.execute(
-                """
-                INSERT INTO complaints
-                    (id, created_date, closed_date, area, category, priority, status, description)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    payload.id,
-                    payload.created_date.isoformat(),
-                    None,
-                    payload.area,
-                    payload.category,
-                    None,
-                    "Pending",
-                    payload.description,
-                ),
-            )
-    except Exception as exc:
-        if "UNIQUE constraint failed" in str(exc):
-            raise HTTPException(status_code=409, detail="Complaint ID already exists") from exc
+        return insert_complaint(
+            {
+                "id": payload.id,
+                "created_date": payload.created_date.isoformat(),
+                "closed_date": None,
+                "area": payload.area,
+                "category": payload.category,
+                "priority": None,
+                "status": "Pending",
+                "description": payload.description,
+            }
+        )
+    except DuplicateComplaintError as exc:
+        raise HTTPException(status_code=409, detail="Complaint ID already exists") from exc
+    except Exception:
         raise
-    return get_complaint(payload.id)
 
 
 @app.put("/complaints/{complaint_id}")
@@ -219,34 +213,22 @@ def update_complaint(complaint_id: str, payload: ComplaintUpdate) -> dict[str, o
         created = created.isoformat()
     if isinstance(closed, date):
         closed = closed.isoformat()
-    if closed and closed < created:
+    created_for_check = created[:10] if isinstance(created, str) else created
+    closed_for_check = closed[:10] if isinstance(closed, str) else closed
+    if closed and closed_for_check < created_for_check:
         raise HTTPException(status_code=422, detail="closed_date cannot be before created_date")
     if updated["status"] == "Closed" and not closed:
         raise HTTPException(status_code=422, detail="closed_date is required when status is Closed")
 
-    with get_connection() as connection:
-        connection.execute(
-            """
-            UPDATE complaints
-            SET created_date = ?, closed_date = ?, area = ?, category = ?,
-                priority = ?, status = ?, description = ?
-            WHERE id = ?
-            """,
-            (
-                created, closed,
-                updated["area"], updated["category"],
-                updated["priority"], updated["status"], updated["description"],
-                complaint_id,
-            ),
-        )
-    return get_complaint(complaint_id)
+    updated["created_date"] = created
+    updated["closed_date"] = closed
+    return update_complaint_record(complaint_id, updated)
 
 
 @app.delete("/complaints/{complaint_id}")
 def delete_complaint(complaint_id: str) -> dict[str, str]:
     get_complaint(complaint_id)
-    with get_connection() as connection:
-        connection.execute("DELETE FROM complaints WHERE id = ?", (complaint_id,))
+    delete_complaint_record(complaint_id)
     return {"message": "Complaint deleted successfully"}
 
 

@@ -13,6 +13,8 @@ data/complaints.db-wal
 
 # Streamlit
 .streamlit/secrets.toml
+.env
+.env.local
 
 # Logs
 *.log

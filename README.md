@@ -1,6 +1,6 @@
 # 📊 Complaint Analytics Dashboard
 
-A real-time public service complaint intelligence dashboard built with **Streamlit**, **Plotly**, and **SQLite**. Visualize complaint trends, track resolution rates, and manage complaint records with an intuitive admin interface.
+A real-time public service complaint intelligence dashboard built with **Streamlit**, **Plotly**, and **Supabase/SQLite**. Visualize complaint trends, track resolution rates, and manage complaint records with an intuitive admin interface.
 
 ### 🌐 Live Demo
 - **Production Dashboard**: [https://complaintanalyticsdashboard.streamlit.app/](https://complaintanalyticsdashboard.streamlit.app/)
@@ -16,7 +16,7 @@ A real-time public service complaint intelligence dashboard built with **Streaml
 - **Admin Panel** — Secure 2-step login (username + password) to update or delete complaints
 - **Auto Refresh** — Dashboard updates automatically after every admin or user action
 - **CSV Export** — Download filtered complaint records as a CSV file
-- **Direct Database Access** — Streamlit frontend reads and writes directly to SQLite database
+- **Shared Complaint Store** — Uses Supabase when configured so complaints are visible to every user, with SQLite as a local fallback
 - **Professional UI** — Dark theme with gradient styling and smooth animations
 
 ---
@@ -27,7 +27,7 @@ A real-time public service complaint intelligence dashboard built with **Streaml
 |-------|-----------|
 | Frontend | [Streamlit](https://streamlit.io/) |
 | Charts | [Plotly](https://plotly.com/python/) |
-| Database | SQLite (via Python `sqlite3`) |
+| Database | Supabase Postgres, SQLite fallback |
 | Data Processing | [Pandas](https://pandas.pydata.org/) |
 | Styling | Custom CSS + Outfit font |
 
@@ -54,6 +54,16 @@ streamlit run frontend/streamlit_app.py
 
 The dashboard will open at `http://localhost:8501`
 
+### Supabase Setup
+
+1. Create a Supabase project.
+2. Run [`schema/supabase.sql`](schema/supabase.sql) in the Supabase SQL editor.
+3. Copy [`.env.example`](.env.example) to `.env`.
+4. Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+5. Restart Streamlit.
+
+When those variables are present, all complaint reads, submissions, admin updates, and deletes use the shared Supabase `complaints` table. Without them, the app keeps using local SQLite.
+
 ---
 
 ## 📁 Project Structure
@@ -65,6 +75,8 @@ Complaint_Analytics_Dashboard/
 ├── data/
 │   ├── complaints.db         # SQLite database
 │   └── sample_complaints.csv # Seed data
+├── schema/
+│   └── supabase.sql          # Shared Supabase table and RLS policies
 ├── tests/
 │   └── test_api.py           # API tests
 ├── setup.bat                 # Environment setup
