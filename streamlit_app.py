@@ -347,10 +347,17 @@ with st.sidebar:
     st.markdown("---")
 
     all_df = load_all()
+    # If the loaded DataFrame is empty (e.g., Supabase has no records), fall back to the local demo CSV
+    if all_df.empty:
+        try:
+            all_df = pd.read_csv(CSV_PATH)
+            st.info("Loaded demo data from local CSV.")
+        except Exception as e:
+            st.error(f"Failed to load demo CSV: {e}")
     # Get distinct areas and categories from data. If none exist, keep list empty.
     areas = sorted(all_df["area"].dropna().unique().tolist())
     categories = sorted(all_df["category"].dropna().unique().tolist())
-    # Fallback defaults to avoid empty dropdowns
+    # Fallback defaults to avoid empty dropdowns when even CSV is empty
     if not areas:
         areas = ["General"]
     if not categories:
