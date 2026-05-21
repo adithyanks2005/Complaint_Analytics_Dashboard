@@ -512,73 +512,31 @@ with main_col:
 </div>
 """, unsafe_allow_html=True)
 
-    # Calculate timezone offset in minutes from UTC (e.g. +330 for IST)
-    local_now = datetime.now()
-    utc_now = datetime.now(timezone.utc).replace(tzinfo=None)
-    offset_minutes = int(round((local_now - utc_now).total_seconds() / 60))
-
-    # Print to Python server console
-    current_time_str = local_now.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-    print(f"[INFO] Current Server/Device Local Time: {current_time_str}")
-
-    # Inject JS to show browser's local time (updates every second)
-    st.markdown(f"""
-<script>
-(function() {{
-  var serverOffsetMinutes = {offset_minutes};
-  var hasLogged = false;
-  
-  function updateClock() {{
-    try {{
-      var parentWin = window.parent || window;
-      var el = parentWin.document.getElementById('live-clock');
-      if (!el) {{ el = document.getElementById('live-clock'); }}
-      if (el) {{
-        var now = new parentWin.Date();
-        // Calculate the absolute system local time by adding the server's offset and compensating for browser offset
-        var adjustedTime = new parentWin.Date(now.getTime() + (serverOffsetMinutes * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-        
-        var year = adjustedTime.getFullYear();
-        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        var month = monthNames[adjustedTime.getMonth()];
-        var day = String(adjustedTime.getDate()).padStart(2, '0');
-        var hour = String(adjustedTime.getHours()).padStart(2, '0');
-        var minute = String(adjustedTime.getMinutes()).padStart(2, '0');
-        var second = String(adjustedTime.getSeconds()).padStart(2, '0');
-        
-        var formatted = month + " " + day + ", " + year + " • " + hour + ":" + minute + ":" + second;
-        el.textContent = formatted;
-        
-        if (!hasLogged) {{
-          console.log("[INFO] Live clock successfully synchronized with local device time via server offset.");
-          console.log("[INFO] Server Timezone Offset (minutes):", serverOffsetMinutes);
-          console.log("[INFO] Browser Timezone Offset (minutes):", now.getTimezoneOffset());
-          console.log("[INFO] Rendered Device Time:", formatted);
-          hasLogged = true;
-        }}
-      }}
-    }} catch (e) {{
-      var el = document.getElementById('live-clock');
-      if (el) {{
+    # Inject JS to show browser's local time (updates every second) using an onerror handler
+    st.markdown("""
+<img src="x" onerror="
+  (function() {
+    function updateClock() {
+      var clock = document.getElementById('live-clock');
+      if (clock) {
         var now = new Date();
-        var adjustedTime = new Date(now.getTime() + (serverOffsetMinutes * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-        var year = adjustedTime.getFullYear();
-        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        var month = monthNames[adjustedTime.getMonth()];
-        var day = String(adjustedTime.getDate()).padStart(2, '0');
-        var hour = String(adjustedTime.getHours()).padStart(2, '0');
-        var minute = String(adjustedTime.getMinutes()).padStart(2, '0');
-        var second = String(adjustedTime.getSeconds()).padStart(2, '0');
-        var formatted = month + " " + day + ", " + year + " • " + hour + ":" + minute + ":" + second;
-        el.textContent = formatted;
-      }}
-    }}
-  }}
-  updateClock();
-  setInterval(updateClock, 1000);
-}})();
-</script>
-
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var month = months[now.getMonth()];
+        var day = String(now.getDate()).padStart(2, '0');
+        var year = now.getFullYear();
+        var hours = String(now.getHours()).padStart(2, '0');
+        var minutes = String(now.getMinutes()).padStart(2, '0');
+        var seconds = String(now.getSeconds()).padStart(2, '0');
+        clock.textContent = month + ' ' + day + ', ' + year + ' • ' + hours + ':' + minutes + ':' + seconds;
+      }
+    }
+    updateClock();
+    if (window.liveClockInterval) {
+      clearInterval(window.liveClockInterval);
+    }
+    window.liveClockInterval = setInterval(updateClock, 1000);
+  })()
+" style="display:none;"/>
 """, unsafe_allow_html=True)
 
     st.markdown(f"""
