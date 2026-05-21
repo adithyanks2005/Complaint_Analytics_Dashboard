@@ -6,5 +6,5 @@ if not exist ".venv\Scripts\activate.bat" (
   exit /b
 )
 call .venv\Scripts\activate
-python -m uvicorn backend.main:app --reload
+python3 -m uvicorn backend.main:app --reload
 pause

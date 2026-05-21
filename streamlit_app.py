@@ -512,32 +512,36 @@ with main_col:
 </div>
 """, unsafe_allow_html=True)
 
-    # Inject JS to show browser's local time (updates every second) using an onerror handler
-    st.markdown("""
-<img src="x" onerror="
-  (function() {
-    function updateClock() {
-      var clock = document.getElementById('live-clock');
-      if (clock) {
-        var now = new Date();
-        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        var month = months[now.getMonth()];
-        var day = String(now.getDate()).padStart(2, '0');
-        var year = now.getFullYear();
-        var hours = String(now.getHours()).padStart(2, '0');
-        var minutes = String(now.getMinutes()).padStart(2, '0');
-        var seconds = String(now.getSeconds()).padStart(2, '0');
-        clock.textContent = month + ' ' + day + ', ' + year + ' • ' + hours + ':' + minutes + ':' + seconds;
+    # Inject JS to show browser's local time (updates every second) using a component
+    import streamlit.components.v1 as components
+    components.html("""
+    <script>
+      function updateClock() {
+        var clock = window.parent.document.getElementById('live-clock');
+        if (clock) {
+          var now = new Date();
+          var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          var month = months[now.getMonth()];
+          var day = String(now.getDate()).padStart(2, '0');
+          var year = now.getFullYear();
+          
+          var rawHours = now.getHours();
+          var ampm = rawHours >= 12 ? 'PM' : 'AM';
+          var hours12 = rawHours % 12 || 12; // convert 0 to 12
+          var hours = String(hours12).padStart(2, '0');
+          var minutes = String(now.getMinutes()).padStart(2, '0');
+          var seconds = String(now.getSeconds()).padStart(2, '0');
+          
+          clock.textContent = month + ' ' + day + ', ' + year + ' • ' + hours + ':' + minutes + ':' + seconds + ' ' + ampm;
+        }
       }
-    }
-    updateClock();
-    if (window.liveClockInterval) {
-      clearInterval(window.liveClockInterval);
-    }
-    window.liveClockInterval = setInterval(updateClock, 1000);
-  })()
-" style="display:none;"/>
-""", unsafe_allow_html=True)
+      updateClock();
+      if (window.parent.liveClockInterval) {
+        clearInterval(window.parent.liveClockInterval);
+      }
+      window.parent.liveClockInterval = setInterval(updateClock, 1000);
+    </script>
+    """, height=0)
 
     st.markdown(f"""
 <div class="kpi-grid">
