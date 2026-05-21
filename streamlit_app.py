@@ -521,7 +521,7 @@ with main_col:
     if (!el) { el = document.getElementById('live-clock'); }
     if (el) {
       var now = new Date();
-      var options = { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' };
+      var options = { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
       var formatted = now.toLocaleString(undefined, options).replace(',', '');
       el.textContent = formatted;
     }
@@ -757,7 +757,7 @@ with main_col:
                             conn.execute("""
                                 INSERT INTO complaints (id, created_date, area, category, status, description)
                                 VALUES (?, ?, ?, ?, ?, ?)
-                            """, (new_id.strip(), datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat(), new_area, new_category, "Pending", new_desc.strip()))
+                            """, (new_id.strip(), datetime.now().astimezone().isoformat(), new_area, new_category, "Pending", new_desc.strip()))
                             conn.commit()
                         st.session_state.submit_msg = f"Complaint {new_id} registered"
                         st.session_state.form_key_f += 1
