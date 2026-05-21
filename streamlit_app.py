@@ -322,8 +322,8 @@ except Exception as e:
 @st.cache_data(ttl=30)
 def load_all() -> pd.DataFrame:
     df = read_complaints_df()
-    df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
-    df["closed_date"]  = pd.to_datetime(df["closed_date"],  errors="coerce")
+    df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce", utc=True).dt.tz_localize(None)
+    df["closed_date"]  = pd.to_datetime(df["closed_date"],  errors="coerce", utc=True).dt.tz_localize(None)
     df["closure_days"] = (df["closed_date"] - df["created_date"]).dt.days
     return df
 
