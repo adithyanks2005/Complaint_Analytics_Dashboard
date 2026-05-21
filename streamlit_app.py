@@ -5,7 +5,7 @@ Talks directly to the SQLite database (no backend required)
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -415,17 +415,18 @@ with st.sidebar:
             
     elif st.session_state.login_step == 2:
         st.markdown(f"### 🔑 Hi, {st.session_state.login_uid_input}")
-        pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
-        
-        if pwd:
-            if pwd == ADMIN_PASSWORD:
-                st.session_state.is_admin    = True
-                st.session_state.login_step  = 0
-                st.session_state.drawer_open = True
-                st.rerun()
-            else:
-                st.error("Incorrect password")
-                
+        # Use a form to require explicit login
+        with st.form(key="login_form"):
+            pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
+            login_btn = st.form_submit_button("Login")
+            if login_btn:
+                if pwd == ADMIN_PASSWORD:
+                    st.session_state.is_admin = True
+                    st.session_state.login_step = 0
+                    st.session_state.drawer_open = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect password")
         if st.button("← Back", use_container_width=True):
             st.session_state.login_step = 1
             st.rerun()
@@ -486,7 +487,7 @@ category_df = (
 main_col = st.container()
 
 with main_col:
-    now_str    = datetime.now().strftime("%b %d, %Y · %H:%M")
+    now_str    = datetime.now(timezone.utc).strftime("%b %d, %Y · %H:%M")
     date_range = f"{af['start_date'].strftime('%b %d')} → {af['end_date'].strftime('%b %d, %Y')}"
     admin_badge = '<span class="header-badge" style="background:rgba(99,102,241,0.3);border-color:rgba(139,92,246,0.6)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Admin</span>' if st.session_state.is_admin else ""
 
