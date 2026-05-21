@@ -1,0 +1,3 @@
+id,created_date,closed_date,area,category,priority,status,description
+CMP-101,2025-01-01,2025-01-05,North Zone,Water Supply,High,Closed,Leakage in pipe
+CMP-102,2025-02-15,2025-02-20,South Zone,Road Damage,Medium,Closed,Pothole near school

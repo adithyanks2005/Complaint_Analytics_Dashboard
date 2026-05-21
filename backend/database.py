@@ -251,9 +251,13 @@ def get_complaint_by_id(complaint_id: str) -> dict[str, object] | None:
 
 def insert_complaint(record: dict[str, object]) -> dict[str, object]:
     init_db()
-    # Ensure ID is present; generate if missing
+    # Ensure an ID is always present. Generate using local logic first.
     if not record.get("id"):
+        # Prefer supabase ID generation only if supabase is configured; otherwise use local generator.
         record["id"] = generate_next_id_supabase() if using_supabase() else generate_next_id()
+    # If supabase is configured but ID generation failed for any reason, fallback to local ID.
+    if not record.get("id"):
+        record["id"] = generate_next_id()
     record = _normalise_record(record)
     try:
         if using_supabase():
