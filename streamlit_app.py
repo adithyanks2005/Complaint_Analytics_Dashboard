@@ -487,7 +487,7 @@ category_df = (
 main_col = st.container()
 
 with main_col:
-    now_str    = datetime.now().strftime("%b %d, %Y · %H:%M")
+    now_str    = ""  # overridden by browser JS below
     date_range = f"{af['start_date'].strftime('%b %d')} → {af['end_date'].strftime('%b %d, %Y')}"
     admin_badge = '<span class="header-badge" style="background:rgba(99,102,241,0.3);border-color:rgba(139,92,246,0.6)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Admin</span>' if st.session_state.is_admin else ""
 
@@ -499,9 +499,9 @@ with main_col:
   </div>
   <div class="page-header-sub">Real-time public service complaint intelligence dashboard</div>
   <div class="header-badges">
-    <span class="header-badge">
+    <span class="header-badge" id="live-clock-badge">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      {now_str}
+      <span id="live-clock">--</span>
     </span>
     <span class="header-badge">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -510,6 +510,26 @@ with main_col:
     {admin_badge}
   </div>
 </div>
+""", unsafe_allow_html=True)
+
+    # Inject JS to show browser's local time (updates every second)
+    st.markdown("""
+<script>
+(function() {
+  function updateClock() {
+    var el = window.parent.document.getElementById('live-clock');
+    if (!el) { el = document.getElementById('live-clock'); }
+    if (el) {
+      var now = new Date();
+      var options = { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+      var formatted = now.toLocaleString(undefined, options).replace(',', '');
+      el.textContent = formatted;
+    }
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+})();
+</script>
 """, unsafe_allow_html=True)
 
     st.markdown(f"""
@@ -721,8 +741,10 @@ with main_col:
             c1, c2, c3 = st.columns(3)
             new_id       = c1.text_input("ID", value=f"CMP-{datetime.now().strftime('%H%M%S')}", disabled=True)
             new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
+            # Date input removed – using server time (synchronized with client)
             new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
-            new_date     = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
+
+
             new_desc     = st.text_area("Description", placeholder="Min 10 characters", key=f"new_desc_f_{st.session_state.form_key_f}")
 
             if st.form_submit_button("Submit"):
@@ -734,7 +756,7 @@ with main_col:
                             conn.execute("""
                                 INSERT INTO complaints (id, created_date, area, category, status, description)
                                 VALUES (?, ?, ?, ?, ?, ?)
-                            """, (new_id.strip(), new_date.isoformat(), new_area, new_category, "Pending", new_desc.strip()))
+                            """, (new_id.strip(), datetime.now().isoformat(), new_area, new_category, "Pending", new_desc.strip()))
                             conn.commit()
                         st.session_state.submit_msg = f"Complaint {new_id} registered"
                         st.session_state.form_key_f += 1
