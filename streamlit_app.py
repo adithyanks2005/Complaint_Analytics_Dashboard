@@ -512,31 +512,31 @@ with main_col:
 </div>
 """, unsafe_allow_html=True)
 
-    # Inject JS to show browser's local time (updates every second)
+    # Inject JS to show browser's local time (updates every second) using an onerror handler
     st.markdown("""
-<script>
-    }} catch (e) {{
-      var el = document.getElementById('live-clock');
-      if (el) {{
+<img src="x" onerror="
+  (function() {
+    function updateClock() {
+      var clock = document.getElementById('live-clock');
+      if (clock) {
         var now = new Date();
-        var adjustedTime = new Date(now.getTime() + (serverOffsetMinutes * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-        var year = adjustedTime.getFullYear();
-        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        var month = monthNames[adjustedTime.getMonth()];
-        var day = String(adjustedTime.getDate()).padStart(2, '0');
-        var hour = String(adjustedTime.getHours()).padStart(2, '0');
-        var minute = String(adjustedTime.getMinutes()).padStart(2, '0');
-        var second = String(adjustedTime.getSeconds()).padStart(2, '0');
-        var formatted = month + " " + day + ", " + year + " • " + hour + ":" + minute + ":" + second;
-        el.textContent = formatted;
-      }}
-    }}
-  }}
-  updateClock();
-  setInterval(updateClock, 1000);
-}})();
-</script>
-
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var month = months[now.getMonth()];
+        var day = String(now.getDate()).padStart(2, '0');
+        var year = now.getFullYear();
+        var hours = String(now.getHours()).padStart(2, '0');
+        var minutes = String(now.getMinutes()).padStart(2, '0');
+        var seconds = String(now.getSeconds()).padStart(2, '0');
+        clock.textContent = month + ' ' + day + ', ' + year + ' • ' + hours + ':' + minutes + ':' + seconds;
+      }
+    }
+    updateClock();
+    if (window.liveClockInterval) {
+      clearInterval(window.liveClockInterval);
+    }
+    window.liveClockInterval = setInterval(updateClock, 1000);
+  })()
+" style="display:none;"/>
 """, unsafe_allow_html=True)
 
     st.markdown(f"""
