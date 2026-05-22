@@ -45,7 +45,7 @@ def _find_data_dir() -> Path:
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DB_PATH = DATA_DIR / "complaints.db"
-CSV_PATH = DATA_DIR / "demo_complaints.csv"
+CSV_PATH = DATA_DIR / "sample_complaints.csv"
 
 # Ensure data directory exists
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
