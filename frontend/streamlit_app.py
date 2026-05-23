@@ -287,6 +287,34 @@ input:-webkit-autofill {
 ::selection { background: rgba(99,102,241,0.3); color: white; }
 div[data-testid="InputInstructions"] { display: none !important; }
 
+.sidebar-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e2e8f0;
+    font-size: 1.08rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0.25rem 0 0.9rem 0;
+}
+.sidebar-title svg {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    padding: 7px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.24), rgba(139,92,246,0.1));
+    border: 1px solid rgba(165,180,252,0.18);
+    stroke: #a5b4fc;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 8px 18px rgba(99,102,241,0.13);
+    transition: transform 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+}
+.sidebar-title:hover svg {
+    transform: translateY(-2px);
+    stroke: #c4b5fd;
+    filter: drop-shadow(0 6px 10px rgba(99,102,241,0.22));
+}
+
 .chart-title {
     display: flex;
     align-items: center;
@@ -397,7 +425,7 @@ with st.sidebar:
     categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
-    st.markdown("### Filters")
+    st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><circle cx="12" cy="4" r="2"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><circle cx="10" cy="12" r="2"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><circle cx="14" cy="20" r="2"/></svg><span>Filters</span></div>""", unsafe_allow_html=True)
     start_date = st.date_input("Start Date", value=date(2025, 1, 1))
     end_date   = st.date_input("End Date",   value=date.today())
 
@@ -409,7 +437,7 @@ with st.sidebar:
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
     st.markdown("---")
-    st.markdown("### Admin Login")
+    st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
 
     if st.session_state.is_admin:
         st.success("Admin mode active")
@@ -420,7 +448,7 @@ with st.sidebar:
             st.rerun()
 
     elif st.session_state.login_step == 1:
-        st.markdown("### Admin Login")
+        st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
         uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
         next_clicked = st.button("Next", use_container_width=True)
 
@@ -437,7 +465,7 @@ with st.sidebar:
             st.rerun()
 
     elif st.session_state.login_step == 2:
-        st.markdown(f"### Hi, {st.session_state.login_uid_input}")
+        st.markdown(f"""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg><span>Hi, {st.session_state.login_uid_input}</span></div>""", unsafe_allow_html=True)
         pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
         login_clicked = st.button("Login", use_container_width=True)
 
