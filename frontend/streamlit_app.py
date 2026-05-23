@@ -327,6 +327,7 @@ div[data-testid="InputInstructions"] { display: none !important; }
 
 # ── Session State ──────────────────────────────────────────────────────────────
 if "is_admin"        not in st.session_state: st.session_state.is_admin        = False
+if "drawer_open"     not in st.session_state: st.session_state.drawer_open     = False
 if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
 if "new_complaint_id" not in st.session_state:
     st.session_state.new_complaint_id = None
@@ -388,25 +389,35 @@ with st.sidebar:
 
     st.markdown("---")
 
-    if st.session_state.is_admin:
-        st.success("Admin mode active")
-        if st.button("Logout", use_container_width=True):
-            st.session_state.is_admin = False
+    if not st.session_state.drawer_open and not st.session_state.is_admin:
+        if st.button("Admin Panel", use_container_width=True):
+            st.session_state.drawer_open = True
             st.rerun()
     else:
-        st.markdown("### Admin Access")
-        with st.form("admin_login", clear_on_submit=False):
-            uid = st.text_input("Admin Name", placeholder="Enter Name", label_visibility="collapsed")
-            pwd = st.text_input("Password", type="password", placeholder="Enter Password", label_visibility="collapsed")
-            login = st.form_submit_button("Login", use_container_width=True)
-        if login:
-            if uid.strip() == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
-                st.session_state.is_admin = True
+        st.markdown("### Admin Panel")
+        if st.session_state.is_admin:
+            st.success("Admin mode active")
+            if st.button("Logout", use_container_width=True):
+                st.session_state.is_admin = False
+                st.session_state.drawer_open = False
                 st.rerun()
-            elif uid.strip() != ADMIN_USERNAME:
-                st.error("Username not found")
-            else:
-                st.error("Incorrect password")
+        else:
+            with st.form("admin_login", clear_on_submit=False):
+                uid = st.text_input("Admin Name", placeholder="Enter Name", label_visibility="collapsed")
+                pwd = st.text_input("Password", type="password", placeholder="Enter Password", label_visibility="collapsed")
+                login = st.form_submit_button("Login", use_container_width=True)
+            if login:
+                if uid.strip() == ADMIN_USERNAME and pwd == ADMIN_PASSWORD:
+                    st.session_state.is_admin = True
+                    st.session_state.drawer_open = True
+                    st.rerun()
+                elif uid.strip() != ADMIN_USERNAME:
+                    st.error("Username not found")
+                else:
+                    st.error("Incorrect password")
+            if st.button("Close Admin Panel", use_container_width=True):
+                st.session_state.drawer_open = False
+                st.rerun()
 af = {
     "start_date": start_date,
     "end_date": end_date,
