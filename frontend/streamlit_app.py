@@ -402,9 +402,10 @@ with st.sidebar:
 
     elif st.session_state.login_step == 1:
         st.markdown("### Admin Login")
-        uid = st.text_input("Admin Name", placeholder="Enter Name", key="uid_field", label_visibility="collapsed")
+        uid = st.text_input("Name", placeholder="Enter Name", key="uid_field", label_visibility="collapsed")
+        next_clicked = st.button("Next", use_container_width=True)
 
-        if uid:
+        if next_clicked:
             if uid.strip() == ADMIN_USERNAME:
                 st.session_state.login_uid_input = uid.strip()
                 st.session_state.login_step = 2
@@ -419,8 +420,9 @@ with st.sidebar:
     elif st.session_state.login_step == 2:
         st.markdown(f"### Hi, {st.session_state.login_uid_input}")
         pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
+        login_clicked = st.button("Login", use_container_width=True)
 
-        if pwd:
+        if login_clicked:
             if pwd == ADMIN_PASSWORD:
                 st.session_state.is_admin    = True
                 st.session_state.login_step  = 0
