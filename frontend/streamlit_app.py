@@ -401,7 +401,7 @@ with st.sidebar:
             st.rerun()
 
     elif st.session_state.login_step == 1:
-        st.markdown("### Admin Access")
+        st.markdown("### Admin Login")
         uid = st.text_input("Admin Name", placeholder="Enter Name", key="uid_field", label_visibility="collapsed")
 
         if uid:
