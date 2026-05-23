@@ -390,6 +390,7 @@ with st.sidebar:
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
     st.markdown("---")
+    st.markdown("### Secure Access")
 
     if st.session_state.is_admin:
         st.success("Admin mode active")
