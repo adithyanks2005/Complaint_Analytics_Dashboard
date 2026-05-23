@@ -390,7 +390,7 @@ with st.sidebar:
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
     st.markdown("---")
-    st.markdown("### Admin")
+    st.markdown("### Admin Login")
 
     if st.session_state.is_admin:
         st.success("Admin mode active")
@@ -402,7 +402,7 @@ with st.sidebar:
 
     elif st.session_state.login_step == 1:
         st.markdown("### Admin Login")
-        uid = st.text_input("Name", placeholder="Enter Name", key="uid_field", label_visibility="collapsed")
+        uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
         next_clicked = st.button("Next", use_container_width=True)
 
         if next_clicked:
