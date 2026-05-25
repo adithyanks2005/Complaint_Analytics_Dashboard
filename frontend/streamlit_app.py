@@ -69,6 +69,44 @@ GENERIC_AREA_LABELS = {
     "South Zone",
     "West Zone",
 }
+INDIAN_STATES = [
+    "Andaman and Nicobar Islands",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chandigarh",
+    "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jammu and Kashmir",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Ladakh",
+    "Lakshadweep",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Puducherry",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+]
 INDIAN_LOCATIONS = [
     "Agartala",
     "Agra",
@@ -806,6 +844,12 @@ def build_location_options(df: pd.DataFrame, column: str) -> list[str]:
     )
 
 
+def build_form_location_options(saved_options: list[str], fallback_options: list[str] | None = None) -> list[str]:
+    fallback_options = fallback_options or []
+    options = sorted({*saved_options, *fallback_options})
+    return ["Not provided", *options]
+
+
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     if uploaded_file is None:
         return None
@@ -895,6 +939,11 @@ with st.sidebar:
     areas      = build_area_options(saved_areas)
     combined_locations = build_combined_location_options(all_df, areas)
     location_filter_options = [{"label": "All locations"}, *combined_locations]
+    state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
+    district_options = build_form_location_options(build_location_options(all_df, "district"), INDIAN_LOCATIONS)
+    municipality_options = build_form_location_options(build_location_options(all_df, "municipality"), INDIAN_LOCATIONS)
+    village_options = build_form_location_options(build_location_options(all_df, "village"), INDIAN_LOCATIONS)
+    area_options = build_form_location_options(areas)
     categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
@@ -1333,36 +1382,15 @@ with main_col:
             st.session_state.new_complaint_id = get_next_complaint_id()
 
         with st.form("new_complaint", clear_on_submit=False):
-            id_col, location_col = st.columns([0.8, 2.2])
+            id_col, state_col, district_col = st.columns([0.8, 1.1, 1.1])
             new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
-            location_mode = location_col.radio(
-                "Location",
-                ["Use saved location", "Enter full location"],
-                horizontal=True,
-                key=f"location_mode_f_{st.session_state.form_key_f}",
-            )
-            if location_mode == "Use saved location":
-                new_location = location_col.selectbox(
-                    "Saved location",
-                    combined_locations,
-                    format_func=format_combined_location,
-                    key=f"new_location_f_{st.session_state.form_key_f}",
-                )
-                manual_location = {}
-            else:
-                m1, m2, m3 = st.columns(3)
-                manual_location = {
-                    "state": m1.text_input("State", key=f"manual_state_f_{st.session_state.form_key_f}").strip(),
-                    "district": m2.text_input("District", key=f"manual_district_f_{st.session_state.form_key_f}").strip(),
-                    "municipality": m3.text_input("Municipality", key=f"manual_municipality_f_{st.session_state.form_key_f}").strip(),
-                }
-                m4, m5, m6 = st.columns(3)
-                manual_location.update({
-                    "village": m4.text_input("Village", key=f"manual_village_f_{st.session_state.form_key_f}").strip(),
-                    "area": m5.text_input("Area", key=f"manual_area_f_{st.session_state.form_key_f}").strip(),
-                    "pincode": m6.text_input("Pincode", max_chars=6, key=f"manual_pincode_f_{st.session_state.form_key_f}").strip(),
-                })
-                new_location = None
+            new_state = state_col.selectbox("State", state_options, key=f"new_state_f_{st.session_state.form_key_f}")
+            new_district = district_col.selectbox("District", district_options, key=f"new_district_f_{st.session_state.form_key_f}")
+            loc1, loc2, loc3 = st.columns(3)
+            new_municipality = loc1.selectbox("Municipality", municipality_options, key=f"new_municipality_f_{st.session_state.form_key_f}")
+            new_area = loc2.selectbox("Area", area_options, key=f"new_area_f_{st.session_state.form_key_f}")
+            new_village = loc3.selectbox("Village", village_options, key=f"new_village_f_{st.session_state.form_key_f}")
+            new_pincode = st.text_input("Pincode (optional)", max_chars=6, key=f"new_pincode_f_{st.session_state.form_key_f}")
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
@@ -1375,16 +1403,31 @@ with main_col:
                 ["Auto detect", "Low", "Medium", "High"],
                 key=f"new_priority_f_{st.session_state.form_key_f}",
             )
-            camera_col, upload_col = st.columns(2)
-            camera_file = camera_col.camera_input(
-                "Take photo (optional)",
-                key=f"new_camera_f_{st.session_state.form_key_f}",
+            image_mode = st.radio(
+                "Image",
+                ["No image", "Take photo", "Upload file"],
+                horizontal=True,
+                key=f"image_mode_f_{st.session_state.form_key_f}",
             )
-            uploaded_file = upload_col.file_uploader(
-                "Upload image file (optional)",
-                type=["jpg", "jpeg", "png", "webp"],
-                key=f"new_image_f_{st.session_state.form_key_f}",
-            )
+            camera_file = None
+            uploaded_file = None
+            photo_verified = False
+            if image_mode == "Take photo":
+                camera_file = st.camera_input(
+                    "Take photo",
+                    key=f"new_camera_f_{st.session_state.form_key_f}",
+                )
+                if camera_file:
+                    photo_verified = st.checkbox(
+                        "I verified this photo and want to upload it",
+                        key=f"verify_camera_f_{st.session_state.form_key_f}",
+                    )
+            elif image_mode == "Upload file":
+                uploaded_file = st.file_uploader(
+                    "Upload image file",
+                    type=["jpg", "jpeg", "png", "webp"],
+                    key=f"new_image_f_{st.session_state.form_key_f}",
+                )
             new_desc = st.text_area(
                 "Description",
                 placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
@@ -1392,18 +1435,25 @@ with main_col:
             )
 
             if st.form_submit_button("Submit"):
-                selected_location = manual_location if location_mode == "Enter full location" else (new_location or {})
+                selected_location = {
+                    "state": "" if new_state == "Not provided" else new_state,
+                    "district": "" if new_district == "Not provided" else new_district,
+                    "municipality": "" if new_municipality == "Not provided" else new_municipality,
+                    "area": "" if new_area == "Not provided" else new_area,
+                    "village": "" if new_village == "Not provided" else new_village,
+                    "pincode": new_pincode.strip(),
+                }
                 final_area = next(
                     (
-                        selected_location.get(field, "").strip()
+                        selected_location[field].strip()
                         for field in ("area", "village", "municipality", "district", "state")
-                        if selected_location.get(field, "").strip()
+                        if selected_location[field].strip()
                     ),
                     "",
                 )
                 final_category = new_category
                 final_contact = user_contact.strip()
-                final_pincode = selected_location.get("pincode", "").strip()
+                final_pincode = selected_location["pincode"]
                 image_file = camera_file or uploaded_file
                 final_desc = new_desc.strip()
                 final_priority = (
@@ -1419,6 +1469,10 @@ with main_col:
                     st.error("Enter a valid email ID or mobile number")
                 elif final_pincode and not is_valid_pincode(final_pincode):
                     st.error("Enter a valid 6-digit Indian PIN code")
+                elif image_mode == "Take photo" and not camera_file:
+                    st.error("Take a photo before submitting")
+                elif image_mode == "Take photo" and not photo_verified:
+                    st.error("Verify the photo before uploading it")
                 elif len(final_desc) < 10:
                     st.error("Description too short")
                 else:
