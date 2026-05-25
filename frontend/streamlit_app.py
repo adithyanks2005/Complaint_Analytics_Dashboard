@@ -841,18 +841,25 @@ def _clean_location_value(value) -> str:
 def format_combined_location(location: dict[str, str]) -> str:
     if location.get("label"):
         return location["label"]
-    parts = [
-        location.get("state"),
-        location.get("district"),
-        location.get("municipality"),
-        location.get("village"),
-        location.get("area"),
+    filled_parts = [
+        (field, location.get(field))
+        for field in LOCATION_FIELDS
+        if field != "pincode" and location.get(field)
     ]
+    if len(filled_parts) == 1:
+        field, value = filled_parts[0]
+        return f"{field.title()}: {value}"
+    parts = [value for _, value in filled_parts]
     label = ", ".join(part for part in parts if part)
     pincode = location.get("pincode")
     if pincode:
         label = f"{label} - {pincode}" if label else pincode
-    return label or "Select location"
+    if label:
+        return label
+    for field in LOCATION_FIELDS:
+        if location.get(field):
+            return f"{field.title()}: {location[field]}"
+    return "Select location"
 
 
 def build_combined_location_options(df: pd.DataFrame, area_options: list[str]) -> list[dict[str, str]]:
@@ -1328,12 +1335,34 @@ with main_col:
         with st.form("new_complaint", clear_on_submit=False):
             id_col, location_col = st.columns([0.8, 2.2])
             new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
-            new_location = location_col.selectbox(
+            location_mode = location_col.radio(
                 "Location",
-                combined_locations,
-                format_func=format_combined_location,
-                key=f"new_location_f_{st.session_state.form_key_f}",
+                ["Use saved location", "Enter full location"],
+                horizontal=True,
+                key=f"location_mode_f_{st.session_state.form_key_f}",
             )
+            if location_mode == "Use saved location":
+                new_location = location_col.selectbox(
+                    "Saved location",
+                    combined_locations,
+                    format_func=format_combined_location,
+                    key=f"new_location_f_{st.session_state.form_key_f}",
+                )
+                manual_location = {}
+            else:
+                m1, m2, m3 = st.columns(3)
+                manual_location = {
+                    "state": m1.text_input("State", key=f"manual_state_f_{st.session_state.form_key_f}").strip(),
+                    "district": m2.text_input("District", key=f"manual_district_f_{st.session_state.form_key_f}").strip(),
+                    "municipality": m3.text_input("Municipality", key=f"manual_municipality_f_{st.session_state.form_key_f}").strip(),
+                }
+                m4, m5, m6 = st.columns(3)
+                manual_location.update({
+                    "village": m4.text_input("Village", key=f"manual_village_f_{st.session_state.form_key_f}").strip(),
+                    "area": m5.text_input("Area", key=f"manual_area_f_{st.session_state.form_key_f}").strip(),
+                    "pincode": m6.text_input("Pincode", max_chars=6, key=f"manual_pincode_f_{st.session_state.form_key_f}").strip(),
+                })
+                new_location = None
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
@@ -1346,23 +1375,16 @@ with main_col:
                 ["Auto detect", "Low", "Medium", "High"],
                 key=f"new_priority_f_{st.session_state.form_key_f}",
             )
-            image_source = st.radio(
-                "Image",
-                ["Upload file", "Take photo"],
-                horizontal=True,
-                key=f"image_source_f_{st.session_state.form_key_f}",
+            camera_col, upload_col = st.columns(2)
+            camera_file = camera_col.camera_input(
+                "Take photo (optional)",
+                key=f"new_camera_f_{st.session_state.form_key_f}",
             )
-            if image_source == "Take photo":
-                image_file = st.camera_input(
-                    "Take photo (optional)",
-                    key=f"new_camera_f_{st.session_state.form_key_f}",
-                )
-            else:
-                image_file = st.file_uploader(
-                    "Upload image (optional)",
-                    type=["jpg", "jpeg", "png", "webp"],
-                    key=f"new_image_f_{st.session_state.form_key_f}",
-                )
+            uploaded_file = upload_col.file_uploader(
+                "Upload image file (optional)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key=f"new_image_f_{st.session_state.form_key_f}",
+            )
             new_desc = st.text_area(
                 "Description",
                 placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
@@ -1370,11 +1392,19 @@ with main_col:
             )
 
             if st.form_submit_button("Submit"):
-                selected_location = new_location or {}
-                final_area = selected_location.get("area", "").strip()
+                selected_location = manual_location if location_mode == "Enter full location" else (new_location or {})
+                final_area = next(
+                    (
+                        selected_location.get(field, "").strip()
+                        for field in ("area", "village", "municipality", "district", "state")
+                        if selected_location.get(field, "").strip()
+                    ),
+                    "",
+                )
                 final_category = new_category
                 final_contact = user_contact.strip()
                 final_pincode = selected_location.get("pincode", "").strip()
+                image_file = camera_file or uploaded_file
                 final_desc = new_desc.strip()
                 final_priority = (
                     infer_priority(final_desc, final_category)
