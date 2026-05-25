@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import sys
 import re
+import secrets
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -388,6 +389,12 @@ if "last_complaint_receipt" not in st.session_state:
     st.session_state.last_complaint_receipt = None
 if "citizen_contact" not in st.session_state:
     st.session_state.citizen_contact = None
+if "citizen_pending_contact" not in st.session_state:
+    st.session_state.citizen_pending_contact = None
+if "citizen_otp" not in st.session_state:
+    st.session_state.citizen_otp = None
+if "citizen_otp_expires_at" not in st.session_state:
+    st.session_state.citizen_otp_expires_at = None
 
 
 # ── Data Helpers ───────────────────────────────────────────────────────────────
@@ -460,6 +467,18 @@ def is_valid_contact(value: str) -> bool:
     email_ok = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value)
     mobile_ok = re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", value)
     return bool(email_ok or mobile_ok)
+
+
+def start_citizen_otp(contact: str) -> None:
+    st.session_state.citizen_pending_contact = contact
+    st.session_state.citizen_otp = f"{secrets.randbelow(1_000_000):06d}"
+    st.session_state.citizen_otp_expires_at = datetime.now() + timedelta(minutes=5)
+
+
+def reset_citizen_otp() -> None:
+    st.session_state.citizen_pending_contact = None
+    st.session_state.citizen_otp = None
+    st.session_state.citizen_otp_expires_at = None
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -882,24 +901,56 @@ with main_col:
         st.subheader("Raise New Complaint")
 
         if not st.session_state.citizen_contact:
-            with st.form("citizen_login", clear_on_submit=False):
-                contact_input = st.text_input(
-                    "Mobile number or email",
-                    placeholder="Enter mobile number or email ID",
-                    key="citizen_contact_input",
-                )
-                if st.form_submit_button("Continue", use_container_width=True):
-                    contact_value = contact_input.strip()
-                    if not is_valid_contact(contact_value):
-                        st.error("Enter a valid email ID or mobile number")
-                    else:
-                        st.session_state.citizen_contact = contact_value
-                        st.rerun()
+            if st.session_state.citizen_pending_contact:
+                pending_contact = st.session_state.citizen_pending_contact
+                expires_at = st.session_state.citizen_otp_expires_at
+                st.info(f"OTP sent to {pending_contact}")
+                st.caption(f"Demo OTP: {st.session_state.citizen_otp}")
+
+                with st.form("citizen_otp_verify", clear_on_submit=False):
+                    otp_input = st.text_input(
+                        "OTP",
+                        placeholder="Enter 6-digit OTP",
+                        max_chars=6,
+                        key="citizen_otp_input",
+                    )
+                    if st.form_submit_button("Verify OTP", use_container_width=True):
+                        if expires_at and datetime.now() > expires_at:
+                            st.error("OTP expired. Please resend a new code.")
+                        elif otp_input.strip() == st.session_state.citizen_otp:
+                            st.session_state.citizen_contact = pending_contact
+                            reset_citizen_otp()
+                            st.rerun()
+                        else:
+                            st.error("Incorrect OTP")
+
+                resend_col, change_col = st.columns(2)
+                if resend_col.button("Resend OTP", use_container_width=True):
+                    start_citizen_otp(pending_contact)
+                    st.rerun()
+                if change_col.button("Change Contact", use_container_width=True):
+                    reset_citizen_otp()
+                    st.rerun()
+            else:
+                with st.form("citizen_login", clear_on_submit=False):
+                    contact_input = st.text_input(
+                        "Mobile number or email",
+                        placeholder="Enter mobile number or email ID",
+                        key="citizen_contact_input",
+                    )
+                    if st.form_submit_button("Send OTP", use_container_width=True):
+                        contact_value = contact_input.strip()
+                        if not is_valid_contact(contact_value):
+                            st.error("Enter a valid email ID or mobile number")
+                        else:
+                            start_citizen_otp(contact_value)
+                            st.rerun()
         else:
             login_col, action_col = st.columns([3, 1])
             login_col.info(f"Submitting as {st.session_state.citizen_contact}")
             if action_col.button("Change Login", use_container_width=True):
                 st.session_state.citizen_contact = None
+                reset_citizen_otp()
                 st.rerun()
 
             if "form_key_f" not in st.session_state:
