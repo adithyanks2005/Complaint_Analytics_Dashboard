@@ -715,17 +715,23 @@ except Exception as e:
 @st.cache_data(ttl=30)
 def load_all() -> pd.DataFrame:
     df = read_complaints_df()
+    for col in ["state", "district", "municipality", "village", "pincode"]:
+        if col not in df.columns:
+            df[col] = None
     df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
     df["closed_date"]  = pd.to_datetime(df["closed_date"],  errors="coerce")
     df["closure_days"] = (df["closed_date"] - df["created_date"]).dt.days
     return df
 
 
-def filter_df(df, start, end, area, category, status):
+def filter_df(df, start, end, state, district, area, pincode, category, status):
     f = df.copy()
     f = f[f["created_date"].dt.date >= start]
     f = f[f["created_date"].dt.date <= end]
+    if state    != "All": f = f[f["state"]    == state]
+    if district != "All": f = f[f["district"] == district]
     if area     != "All": f = f[f["area"]     == area]
+    if pincode.strip():    f = f[f["pincode"].fillna("").astype(str) == pincode.strip()]
     if category != "All": f = f[f["category"] == category]
     if status   != "All": f = f[f["status"]   == status]
     return f.sort_values("created_date", ascending=False)
@@ -757,7 +763,12 @@ def build_receipt(complaint: dict[str, object]) -> str:
     fields = [
         ("Complaint ID", complaint["id"]),
         ("Date", complaint["created_date"]),
+        ("State", complaint.get("state") or "Not provided"),
+        ("District", complaint.get("district") or "Not provided"),
+        ("Municipality", complaint.get("municipality") or "Not provided"),
+        ("Village", complaint.get("village") or "Not provided"),
         ("Area", complaint["area"]),
+        ("Pincode", complaint.get("pincode") or "Not provided"),
         ("Category", complaint["category"]),
         ("Priority", complaint["priority"] or "Not set"),
         ("Status", complaint["status"]),
@@ -775,6 +786,22 @@ def is_valid_contact(value: str) -> bool:
     email_ok = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value)
     mobile_ok = re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", value)
     return bool(email_ok or mobile_ok)
+
+
+def is_valid_pincode(value: str) -> bool:
+    return bool(re.fullmatch(r"[1-9][0-9]{5}", value.strip()))
+
+
+def build_location_options(df: pd.DataFrame, column: str) -> list[str]:
+    if column not in df.columns:
+        return []
+    return sorted(
+        {
+            value.strip()
+            for value in df[column].dropna().astype(str)
+            if value.strip()
+        }
+    )
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -799,14 +826,65 @@ def build_area_options(saved_areas: list[str]) -> list[str]:
     ]
     return sorted({*INDIAN_LOCATIONS, *custom_areas})
 
+
+LOCATION_FIELDS = ("state", "district", "municipality", "village", "area", "pincode")
+
+
+def _clean_location_value(value) -> str:
+    if pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
+def format_combined_location(location: dict[str, str]) -> str:
+    parts = [
+        location.get("state"),
+        location.get("district"),
+        location.get("municipality"),
+        location.get("village"),
+        location.get("area"),
+    ]
+    label = ", ".join(part for part in parts if part)
+    pincode = location.get("pincode")
+    if pincode:
+        label = f"{label} - {pincode}" if label else pincode
+    return label or "Select location"
+
+
+def build_combined_location_options(df: pd.DataFrame, area_options: list[str]) -> list[dict[str, str]]:
+    options: list[dict[str, str]] = []
+    seen: set[tuple[str, ...]] = set()
+
+    def add_location(location: dict[str, str]) -> None:
+        cleaned = {field: _clean_location_value(location.get(field)) for field in LOCATION_FIELDS}
+        if not any(cleaned.values()):
+            return
+        key = tuple(cleaned[field].casefold() for field in LOCATION_FIELDS)
+        if key in seen:
+            return
+        seen.add(key)
+        options.append(cleaned)
+
+    if not df.empty:
+        for _, row in df.iterrows():
+            add_location({field: row.get(field, "") for field in LOCATION_FIELDS})
+
+    for area in area_options:
+        add_location({"area": area})
+
+    return sorted(options, key=format_combined_location)
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('## Analytics Dashboard')
     st.markdown("---")
 
     all_df = load_all()
+    states     = build_location_options(all_df, "state")
+    districts  = build_location_options(all_df, "district")
     saved_areas = all_df["area"].dropna().astype(str).unique().tolist()
     areas      = build_area_options(saved_areas)
+    combined_locations = build_combined_location_options(all_df, areas)
     categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
@@ -817,7 +895,10 @@ with st.sidebar:
     if start_date > end_date:
         st.warning("Start date is after end date")
 
+    sel_state    = st.selectbox("State",    ["All", *states])
+    sel_district = st.selectbox("District", ["All", *districts])
     sel_area     = st.selectbox("Area",     ["All", *areas])
+    sel_pincode  = st.text_input("Pincode", placeholder="Optional")
     sel_category = st.selectbox("Category", ["All", *categories])
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
@@ -873,11 +954,24 @@ with st.sidebar:
 af = {
     "start_date": start_date,
     "end_date": end_date,
+    "state": sel_state,
+    "district": sel_district,
     "area": sel_area,
+    "pincode": sel_pincode,
     "category": sel_category,
     "status": sel_status,
 }
-df = filter_df(all_df, af["start_date"], af["end_date"], af["area"], af["category"], af["status"])
+df = filter_df(
+    all_df,
+    af["start_date"],
+    af["end_date"],
+    af["state"],
+    af["district"],
+    af["area"],
+    af["pincode"],
+    af["category"],
+    af["status"],
+)
 
 # ── Analytics ─────────────────────────────────────────────────────────────────
 total     = len(df)
@@ -1194,6 +1288,16 @@ with main_col:
             r2.metric("Status", receipt["status"])
             r3.metric("Priority", receipt["priority"] or "Not set")
             r4.metric("Area", receipt["area"])
+            location_bits = [
+                receipt.get("village"),
+                receipt.get("municipality"),
+                receipt.get("district"),
+                receipt.get("state"),
+                receipt.get("pincode"),
+            ]
+            location_text = ", ".join(str(bit) for bit in location_bits if bit)
+            if location_text:
+                st.caption(f"Location: {location_text}")
             if receipt.get("image_path"):
                 image_file = PROJECT_ROOT / str(receipt["image_path"])
                 if image_file.exists():
@@ -1214,12 +1318,17 @@ with main_col:
             st.session_state.new_complaint_id = get_next_complaint_id()
 
         with st.form("new_complaint", clear_on_submit=False):
-            c1, c2, c3 = st.columns(3)
-            new_id       = c1.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
-            new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
-            new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
-            custom_area = c2.text_input("Other Indian location (optional)", placeholder="Village, town, city, or district", key=f"custom_area_f_{st.session_state.form_key_f}")
-            custom_category = c3.text_input("New category (optional)", placeholder="Use when category is not listed", key=f"custom_category_f_{st.session_state.form_key_f}")
+            id_col, location_col = st.columns([0.8, 2.2])
+            new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
+            new_location = location_col.selectbox(
+                "Location",
+                combined_locations,
+                format_func=format_combined_location,
+                key=f"new_location_f_{st.session_state.form_key_f}",
+            )
+            category_col, custom_category_col = st.columns(2)
+            new_category = category_col.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
+            custom_category = custom_category_col.text_input("New category (optional)", placeholder="Use when category is not listed", key=f"custom_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
                 placeholder="Add contact details for follow-up",
@@ -1243,9 +1352,11 @@ with main_col:
             )
 
             if st.form_submit_button("Submit"):
-                final_area = custom_area.strip() or new_area
+                selected_location = new_location or {}
+                final_area = selected_location.get("area", "").strip()
                 final_category = custom_category.strip() or new_category
                 final_contact = user_contact.strip()
+                final_pincode = selected_location.get("pincode", "").strip()
                 final_desc = new_desc.strip()
                 final_priority = (
                     infer_priority(final_desc, final_category)
@@ -1258,6 +1369,8 @@ with main_col:
                     st.error("Category must be at least 2 characters")
                 elif final_contact and not is_valid_contact(final_contact):
                     st.error("Enter a valid email ID or mobile number")
+                elif final_pincode and not is_valid_pincode(final_pincode):
+                    st.error("Enter a valid 6-digit Indian PIN code")
                 elif len(final_desc) < 10:
                     st.error("Description too short")
                 else:
@@ -1267,7 +1380,12 @@ with main_col:
                             "id": new_id.strip(),
                             "created_date": new_date.isoformat(),
                             "closed_date": None,
+                            "state": selected_location.get("state") or None,
+                            "district": selected_location.get("district") or None,
+                            "municipality": selected_location.get("municipality") or None,
+                            "village": selected_location.get("village") or None,
                             "area": final_area,
+                            "pincode": final_pincode or None,
                             "category": final_category,
                             "priority": final_priority,
                             "status": "Pending",
@@ -1309,15 +1427,31 @@ if st.session_state.is_admin:
                 upd_priority = u3.selectbox("Priority", ["Low", "Medium", "High"],
                                             index=["Low", "Medium", "High"].index(row["priority"]) if pd.notna(row["priority"]) and row["priority"] in ["Low", "Medium", "High"] else 1, key="adm_pri")
                 upd_category = st.selectbox("Category", categories, index=categories.index(row["category"]) if row["category"] in categories else 0, key="adm_cat")
+                loc1, loc2, loc3 = st.columns(3)
+                upd_state = loc1.text_input("State", value=str(row.get("state") or ""), key="adm_state")
+                upd_district = loc2.text_input("District", value=str(row.get("district") or ""), key="adm_district")
+                upd_municipality = loc3.text_input("Municipality", value=str(row.get("municipality") or ""), key="adm_municipality")
+                loc4, loc5 = st.columns(2)
+                upd_village = loc4.text_input("Village", value=str(row.get("village") or ""), key="adm_village")
+                upd_pincode = loc5.text_input("Pincode", value=str(row.get("pincode") or ""), max_chars=6, key="adm_pincode")
                 upd_closed   = st.date_input("Closed Date", value=date.today(), key="adm_closed") if upd_status == "Closed" else None
                 upd_desc     = st.text_area("Description", value=str(row["description"]) if pd.notna(row["description"]) else "", key="adm_desc")
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):
                     closed_val = upd_closed.isoformat() if upd_closed else None
+                    final_admin_pincode = upd_pincode.strip()
+                    if final_admin_pincode and not is_valid_pincode(final_admin_pincode):
+                        st.error("Enter a valid 6-digit Indian PIN code")
+                        st.stop()
                     try:
                         update_complaint_record(sel_id, {
                             "created_date": row["created_date"].strftime("%Y-%m-%d") if pd.notna(row["created_date"]) else date.today().isoformat(),
                             "closed_date": closed_val,
+                            "state": upd_state.strip() or None,
+                            "district": upd_district.strip() or None,
+                            "municipality": upd_municipality.strip() or None,
+                            "village": upd_village.strip() or None,
                             "area": upd_area,
+                            "pincode": final_admin_pincode or None,
                             "category": upd_category,
                             "priority": upd_priority,
                             "status": upd_status,

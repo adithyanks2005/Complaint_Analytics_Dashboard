@@ -40,7 +40,12 @@ COMPLAINT_COLUMNS = [
     "id",
     "created_date",
     "closed_date",
+    "state",
+    "district",
+    "municipality",
+    "village",
     "area",
+    "pincode",
     "category",
     "priority",
     "status",
@@ -139,7 +144,12 @@ def init_db() -> None:
                     id           TEXT PRIMARY KEY,
                     created_date TEXT NOT NULL,
                     closed_date  TEXT,
+                    state        TEXT,
+                    district     TEXT,
+                    municipality TEXT,
+                    village      TEXT,
                     area         TEXT NOT NULL,
+                    pincode      TEXT,
                     category     TEXT NOT NULL,
                     priority     TEXT,
                     status       TEXT NOT NULL DEFAULT 'Pending',
@@ -160,7 +170,15 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
     columns = {
         row["name"]: dict(row) for row in connection.execute("PRAGMA table_info(complaints)").fetchall()
     }
-    for column_name in ["user_contact", "image_path"]:
+    for column_name in [
+        "state",
+        "district",
+        "municipality",
+        "village",
+        "pincode",
+        "user_contact",
+        "image_path",
+    ]:
         if column_name not in columns:
             connection.execute(f"ALTER TABLE complaints ADD COLUMN {column_name} TEXT")
             columns[column_name] = {"name": column_name, "notnull": 0}
@@ -177,7 +195,12 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
             id           TEXT PRIMARY KEY,
             created_date TEXT NOT NULL,
             closed_date  TEXT,
+            state        TEXT,
+            district     TEXT,
+            municipality TEXT,
+            village      TEXT,
             area         TEXT NOT NULL,
+            pincode      TEXT,
             category     TEXT NOT NULL,
             priority     TEXT,
             status       TEXT NOT NULL DEFAULT 'Pending',
@@ -190,14 +213,19 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
     connection.execute(
         """
         INSERT INTO complaints_new (
-            id, created_date, closed_date, area, category, priority, status, description,
-            user_contact, image_path
+            id, created_date, closed_date, state, district, municipality, village, area,
+            pincode, category, priority, status, description, user_contact, image_path
         )
         SELECT
             id,
             created_date,
             NULLIF(closed_date, ''),
+            state,
+            district,
+            municipality,
+            village,
             area,
+            pincode,
             category,
             NULLIF(priority, ''),
             status,

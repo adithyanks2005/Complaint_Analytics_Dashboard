@@ -5,7 +5,12 @@ create table if not exists public.complaints (
     id text primary key,
     created_date timestamptz not null,
     closed_date timestamptz,
+    state text,
+    district text,
+    municipality text,
+    village text,
     area text not null,
+    pincode text check (pincode is null or pincode ~ '^[1-9][0-9]{5}$'),
     category text not null,
     priority text check (priority in ('Low', 'Medium', 'High')),
     status text not null default 'Pending'
@@ -18,6 +23,21 @@ create table if not exists public.complaints (
 );
 
 alter table public.complaints
+    add column if not exists state text;
+
+alter table public.complaints
+    add column if not exists district text;
+
+alter table public.complaints
+    add column if not exists municipality text;
+
+alter table public.complaints
+    add column if not exists village text;
+
+alter table public.complaints
+    add column if not exists pincode text;
+
+alter table public.complaints
     add column if not exists user_contact text;
 
 alter table public.complaints
@@ -28,6 +48,15 @@ create index if not exists complaints_created_date_idx
 
 create index if not exists complaints_area_idx
     on public.complaints (area);
+
+create index if not exists complaints_state_idx
+    on public.complaints (state);
+
+create index if not exists complaints_district_idx
+    on public.complaints (district);
+
+create index if not exists complaints_pincode_idx
+    on public.complaints (pincode);
 
 create index if not exists complaints_category_idx
     on public.complaints (category);

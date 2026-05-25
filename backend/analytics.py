@@ -22,7 +22,10 @@ def filter_complaints(
     df: pd.DataFrame,
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ) -> pd.DataFrame:
@@ -31,8 +34,14 @@ def filter_complaints(
         filtered = filtered[filtered["created_date"].dt.date >= start_date]
     if end_date:
         filtered = filtered[filtered["created_date"].dt.date <= end_date]
+    if state and state != "All":
+        filtered = filtered[filtered["state"] == state]
+    if district and district != "All":
+        filtered = filtered[filtered["district"] == district]
     if area and area != "All":
         filtered = filtered[filtered["area"] == area]
+    if pincode and pincode != "All":
+        filtered = filtered[filtered["pincode"] == pincode]
     if category and category != "All":
         filtered = filtered[filtered["category"] == category]
     if status and status != "All":
@@ -42,7 +51,10 @@ def filter_complaints(
 
 def get_options(df: pd.DataFrame) -> dict[str, list[str]]:
     return {
+        "states":     sorted(df["state"].dropna().unique().tolist()),
+        "districts":  sorted(df["district"].dropna().unique().tolist()),
         "areas":      sorted(df["area"].dropna().unique().tolist()),
+        "pincodes":   sorted(df["pincode"].dropna().unique().tolist()),
         "categories": sorted(df["category"].dropna().unique().tolist()),
         "statuses":   sorted(df["status"].dropna().unique().tolist()),
     }

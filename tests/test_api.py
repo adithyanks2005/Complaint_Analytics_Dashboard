@@ -121,6 +121,38 @@ def test_create_complaint_accepts_contact_and_image_reference():
     client.delete(f"/complaints/{complaint_id}")
 
 
+def test_create_complaint_accepts_structured_location_fields():
+    complaint_id = "CMP-LOCATION-901"
+    payload = {
+        "id":           complaint_id,
+        "created_date": "2026-05-12",
+        "state":        "Tamil Nadu",
+        "district":     "Chennai",
+        "municipality": "Greater Chennai Corporation",
+        "village":      "Velachery",
+        "area":         "Ward 179",
+        "pincode":      "600042",
+        "category":     "Drainage",
+        "description":  "Drainage overflow reported near the main residential street",
+    }
+
+    response = client.post("/complaints", json=payload)
+    assert response.status_code in {201, 409}
+    if response.status_code == 201:
+        created = response.json()
+        assert created["state"] == "Tamil Nadu"
+        assert created["district"] == "Chennai"
+        assert created["municipality"] == "Greater Chennai Corporation"
+        assert created["village"] == "Velachery"
+        assert created["pincode"] == "600042"
+
+        filtered = client.get("/complaints", params={"state": "Tamil Nadu", "pincode": "600042"})
+        assert filtered.status_code == 200
+        assert any(item["id"] == complaint_id for item in filtered.json())
+
+    client.delete(f"/complaints/{complaint_id}")
+
+
 def test_admin_validation_rejects_closed_status_without_closure_date():
     complaint_id = "CMP-BAD-901"
     client.post(

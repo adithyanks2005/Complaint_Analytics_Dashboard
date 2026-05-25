@@ -62,17 +62,43 @@ if _frontend_dir.exists():
 class ComplaintCreateInput(BaseModel):
     id: Optional[str] = Field(default=None, min_length=3, max_length=20, examples=["CMP-101"])
     created_date: date
+    state:        str | None = Field(default=None, min_length=2, max_length=50)
+    district:     str | None = Field(default=None, min_length=2, max_length=50)
+    municipality: str | None = Field(default=None, min_length=2, max_length=80)
+    village:      str | None = Field(default=None, min_length=2, max_length=80)
     area:         str  = Field(min_length=2, max_length=50)
+    pincode:      str | None = Field(default=None, min_length=6, max_length=6)
     category:     str  = Field(min_length=2, max_length=50)
     priority:     Literal["Low", "Medium", "High"] | None = None
     user_contact: str | None = Field(default=None, min_length=5, max_length=100)
     image_path:    str | None = Field(default=None, max_length=300)
     description:  str  = Field(min_length=10, max_length=300)
 
-    @field_validator("id", "area", "category", "user_contact", "image_path", mode="before")
+    @field_validator(
+        "id",
+        "state",
+        "district",
+        "municipality",
+        "village",
+        "area",
+        "pincode",
+        "category",
+        "user_contact",
+        "image_path",
+        mode="before",
+    )
     @classmethod
     def strip_strings(cls, v: Optional[str]) -> Optional[str]:
         return v.strip() if isinstance(v, str) else v
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_pincode(cls, v: str | None) -> str | None:
+        if not v:
+            return v
+        if not re.fullmatch(r"[1-9][0-9]{5}", v):
+            raise ValueError("pincode must be a valid 6-digit Indian PIN code")
+        return v
 
     @field_validator("user_contact")
     @classmethod
@@ -102,7 +128,12 @@ class ComplaintCreate(ComplaintCreateInput):
 class ComplaintUpdate(BaseModel):
     created_date: date | None = None
     closed_date:  date | None = None
+    state:        str  | None = Field(default=None, min_length=2, max_length=50)
+    district:     str  | None = Field(default=None, min_length=2, max_length=50)
+    municipality: str  | None = Field(default=None, min_length=2, max_length=80)
+    village:      str  | None = Field(default=None, min_length=2, max_length=80)
     area:         str  | None = Field(default=None, min_length=2, max_length=50)
+    pincode:      str  | None = Field(default=None, min_length=6, max_length=6)
     category:     str  | None = Field(default=None, min_length=2, max_length=50)
     priority:     Literal["Low", "Medium", "High"]            | None = None
     status:       Literal["Pending", "In Progress", "Closed"] | None = None
@@ -110,10 +141,30 @@ class ComplaintUpdate(BaseModel):
     image_path:    str  | None = Field(default=None, max_length=300)
     description:  str  | None = Field(default=None, min_length=10, max_length=300)
 
-    @field_validator("area", "category", "user_contact", "image_path", mode="before")
+    @field_validator(
+        "state",
+        "district",
+        "municipality",
+        "village",
+        "area",
+        "pincode",
+        "category",
+        "user_contact",
+        "image_path",
+        mode="before",
+    )
     @classmethod
     def strip_strings(cls, v: str | None) -> str | None:
         return v.strip() if isinstance(v, str) else v
+
+    @field_validator("pincode")
+    @classmethod
+    def validate_pincode(cls, v: str | None) -> str | None:
+        if not v:
+            return v
+        if not re.fullmatch(r"[1-9][0-9]{5}", v):
+            raise ValueError("pincode must be a valid 6-digit Indian PIN code")
+        return v
 
     @field_validator("user_contact")
     @classmethod
@@ -140,11 +191,16 @@ class ComplaintUpdate(BaseModel):
 def filtered_data(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ):
-    return filter_complaints(load_complaints(), start_date, end_date, area, category, status)
+    return filter_complaints(
+        load_complaints(), start_date, end_date, state, district, area, pincode, category, status
+    )
 
 
 @app.get("/")
@@ -171,22 +227,28 @@ def options() -> dict[str, list[str]]:
 def complaints(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = Query(default=None),
+    district:   str  | None = Query(default=None),
     area:       str  | None = Query(default=None),
+    pincode:    str  | None = Query(default=None),
     category:   str  | None = Query(default=None),
     status:     str  | None = Query(default=None),
 ) -> list[dict[str, object]]:
-    return records(filtered_data(start_date, end_date, area, category, status))
+    return records(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
 
 
 @app.get("/complaints/export")
 def export_complaints(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ):
-    df = filtered_data(start_date, end_date, area, category, status)
+    df = filtered_data(start_date, end_date, state, district, area, pincode, category, status)
     # Format dates and drop internal columns before export
     export_df = df.copy()
     for col in ["created_date", "closed_date"]:
@@ -215,7 +277,12 @@ def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
                 "id": payload.id,
                 "created_date": payload.created_date.isoformat(),
                 "closed_date": None,
+                "state": payload.state,
+                "district": payload.district,
+                "municipality": payload.municipality,
+                "village": payload.village,
                 "area": payload.area,
+                "pincode": payload.pincode,
                 "category": payload.category,
                 "priority": payload.priority,
                 "status": "Pending",
@@ -270,41 +337,53 @@ def delete_complaint(complaint_id: str) -> dict[str, str]:
 def analytics_summary(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ) -> dict[str, float | int]:
-    return summary_metrics(filtered_data(start_date, end_date, area, category, status))
+    return summary_metrics(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
 
 
 @app.get("/analytics/trends")
 def analytics_trends(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ) -> list[dict[str, object]]:
-    return monthly_trend(filtered_data(start_date, end_date, area, category, status))
+    return monthly_trend(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
 
 
 @app.get("/analytics/area")
 def analytics_area(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ) -> list[dict[str, object]]:
-    return area_summary(filtered_data(start_date, end_date, area, category, status))
+    return area_summary(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
 
 
 @app.get("/analytics/category")
 def analytics_category(
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ) -> list[dict[str, object]]:
-    return category_summary(filtered_data(start_date, end_date, area, category, status))
+    return category_summary(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
