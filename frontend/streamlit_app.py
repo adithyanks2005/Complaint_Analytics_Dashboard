@@ -724,14 +724,16 @@ def load_all() -> pd.DataFrame:
     return df
 
 
-def filter_df(df, start, end, state, district, area, pincode, category, status):
+def filter_df(df, start, end, state, district, municipality, village, area, pincode, category, status):
     f = df.copy()
     f = f[f["created_date"].dt.date >= start]
     f = f[f["created_date"].dt.date <= end]
-    if state    != "All": f = f[f["state"]    == state]
-    if district != "All": f = f[f["district"] == district]
-    if area     != "All": f = f[f["area"]     == area]
-    if pincode.strip():    f = f[f["pincode"].fillna("").astype(str) == pincode.strip()]
+    if state:        f = f[f["state"].fillna("").astype(str)        == state]
+    if district:     f = f[f["district"].fillna("").astype(str)     == district]
+    if municipality: f = f[f["municipality"].fillna("").astype(str) == municipality]
+    if village:      f = f[f["village"].fillna("").astype(str)      == village]
+    if area:         f = f[f["area"].fillna("").astype(str)         == area]
+    if pincode:      f = f[f["pincode"].fillna("").astype(str)      == pincode]
     if category != "All": f = f[f["category"] == category]
     if status   != "All": f = f[f["status"]   == status]
     return f.sort_values("created_date", ascending=False)
@@ -837,6 +839,8 @@ def _clean_location_value(value) -> str:
 
 
 def format_combined_location(location: dict[str, str]) -> str:
+    if location.get("label"):
+        return location["label"]
     parts = [
         location.get("state"),
         location.get("district"),
@@ -880,11 +884,10 @@ with st.sidebar:
     st.markdown("---")
 
     all_df = load_all()
-    states     = build_location_options(all_df, "state")
-    districts  = build_location_options(all_df, "district")
     saved_areas = all_df["area"].dropna().astype(str).unique().tolist()
     areas      = build_area_options(saved_areas)
     combined_locations = build_combined_location_options(all_df, areas)
+    location_filter_options = [{"label": "All locations"}, *combined_locations]
     categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
@@ -895,10 +898,11 @@ with st.sidebar:
     if start_date > end_date:
         st.warning("Start date is after end date")
 
-    sel_state    = st.selectbox("State",    ["All", *states])
-    sel_district = st.selectbox("District", ["All", *districts])
-    sel_area     = st.selectbox("Area",     ["All", *areas])
-    sel_pincode  = st.text_input("Pincode", placeholder="Optional")
+    sel_location = st.selectbox(
+        "Location",
+        location_filter_options,
+        format_func=format_combined_location,
+    )
     sel_category = st.selectbox("Category", ["All", *categories])
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
@@ -954,10 +958,12 @@ with st.sidebar:
 af = {
     "start_date": start_date,
     "end_date": end_date,
-    "state": sel_state,
-    "district": sel_district,
-    "area": sel_area,
-    "pincode": sel_pincode,
+    "state": sel_location.get("state", ""),
+    "district": sel_location.get("district", ""),
+    "municipality": sel_location.get("municipality", ""),
+    "village": sel_location.get("village", ""),
+    "area": sel_location.get("area", ""),
+    "pincode": sel_location.get("pincode", ""),
     "category": sel_category,
     "status": sel_status,
 }
@@ -967,6 +973,8 @@ df = filter_df(
     af["end_date"],
     af["state"],
     af["district"],
+    af["municipality"],
+    af["village"],
     af["area"],
     af["pincode"],
     af["category"],
@@ -1326,9 +1334,7 @@ with main_col:
                 format_func=format_combined_location,
                 key=f"new_location_f_{st.session_state.form_key_f}",
             )
-            category_col, custom_category_col = st.columns(2)
-            new_category = category_col.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
-            custom_category = custom_category_col.text_input("New category (optional)", placeholder="Use when category is not listed", key=f"custom_category_f_{st.session_state.form_key_f}")
+            new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
                 placeholder="Add contact details for follow-up",
@@ -1340,11 +1346,23 @@ with main_col:
                 ["Auto detect", "Low", "Medium", "High"],
                 key=f"new_priority_f_{st.session_state.form_key_f}",
             )
-            image_file = st.file_uploader(
-                "Attach image (optional)",
-                type=["jpg", "jpeg", "png", "webp"],
-                key=f"new_image_f_{st.session_state.form_key_f}",
+            image_source = st.radio(
+                "Image",
+                ["Upload file", "Take photo"],
+                horizontal=True,
+                key=f"image_source_f_{st.session_state.form_key_f}",
             )
+            if image_source == "Take photo":
+                image_file = st.camera_input(
+                    "Take photo (optional)",
+                    key=f"new_camera_f_{st.session_state.form_key_f}",
+                )
+            else:
+                image_file = st.file_uploader(
+                    "Upload image (optional)",
+                    type=["jpg", "jpeg", "png", "webp"],
+                    key=f"new_image_f_{st.session_state.form_key_f}",
+                )
             new_desc = st.text_area(
                 "Description",
                 placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
@@ -1354,7 +1372,7 @@ with main_col:
             if st.form_submit_button("Submit"):
                 selected_location = new_location or {}
                 final_area = selected_location.get("area", "").strip()
-                final_category = custom_category.strip() or new_category
+                final_category = new_category
                 final_contact = user_contact.strip()
                 final_pincode = selected_location.get("pincode", "").strip()
                 final_desc = new_desc.strip()
