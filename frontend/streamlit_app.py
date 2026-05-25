@@ -32,6 +32,9 @@ from backend.database import (
     update_complaint_record,
     using_supabase,
 )
+from backend.pincode_lookup import (
+    get_location_from_pincode,
+)
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Resolve data/ folder regardless of where Streamlit launches the script from.
@@ -108,45 +111,192 @@ INDIAN_STATES = [
     "West Bengal",
 ]
 STATE_DISTRICT_OPTIONS = {
+    "Andaman and Nicobar Islands": ["Nicobars", "North And Middle Andaman", "South Andamans"],
+    "Andhra Pradesh": [
+        "Alluri Sitharama Raju", "Anakapalli", "Ananthapuramu", "Annamayya", "Bapatla", "Chittoor",
+        "Dr. B.R. Ambedkar Konaseema", "East Godavari", "Eluru", "Guntur", "Kakinada", "Krishna",
+        "Kurnool", "Nandyal", "NTR", "Palnadu", "Parvathipuram Manyam", "Prakasam",
+        "Sri Potti Sriramulu Nellore", "Sri Sathya Sai", "Srikakulam", "Tirupati", "Visakhapatnam",
+        "Vizianagaram", "West Godavari", "YSR Kadapa",
+    ],
+    "Arunachal Pradesh": [
+        "Anjaw", "Bichom", "Changlang", "Dibang Valley", "East Kameng", "East Siang", "Kamle",
+        "Keyi Panyor", "Kra Daadi", "Kurung Kumey", "Leparada", "Lohit", "Longding",
+        "Lower Dibang Valley", "Lower Siang", "Lower Subansiri", "Namsai", "Pakke Kessang",
+        "Papum Pare", "Shi Yomi", "Siang", "Tawang", "Tirap", "Upper Siang", "Upper Subansiri",
+        "West Kameng", "West Siang",
+    ],
+    "Assam": [
+        "Bajali", "Baksa", "Barpeta", "Biswanath", "Bongaigaon", "Cachar", "Charaideo", "Chirang",
+        "Darrang", "Dhemaji", "Dhubri", "Dibrugarh", "Dima Hasao", "Goalpara", "Golaghat",
+        "Hailakandi", "Hojai", "Jorhat", "Kamrup", "Kamrup Metro", "Karbi Anglong", "Kokrajhar",
+        "Lakhimpur", "Majuli", "Morigaon", "Nagaon", "Nalbari", "Sivasagar", "Sonitpur",
+        "South Salmara-Mankachar", "Tamulpur", "Tinsukia", "Udalguri", "West Karbi Anglong",
+    ],
+    "Bihar": [
+        "Araria", "Arwal", "Aurangabad", "Banka", "Begusarai", "Bhagalpur", "Bhojpur", "Buxar",
+        "Darbhanga", "East Champaran", "Gaya", "Gopalganj", "Jamui", "Jehanabad", "Kaimur",
+        "Katihar", "Khagaria", "Kishanganj", "Lakhisarai", "Madhepura", "Madhubani", "Munger",
+        "Muzaffarpur", "Nalanda", "Nawada", "Patna", "Purnia", "Rohtas", "Saharsa", "Samastipur",
+        "Saran", "Sheikhpura", "Sheohar", "Sitamarhi", "Siwan", "Supaul", "Vaishali",
+        "West Champaran",
+    ],
+    "Chandigarh": ["Chandigarh"],
+    "Chhattisgarh": [
+        "Balod", "Baloda Bazar-Bhatapara", "Balrampur-Ramanujganj", "Bastar", "Bemetara", "Bijapur",
+        "Bilaspur", "Dantewada", "Dhamtari", "Durg", "Gariaband", "Gaurela-Pendra-Marwahi",
+        "Janjgir-Champa", "Jashpur", "Kabirdham", "Khairagarh-Chhuikhadan-Gandai", "Kondagaon",
+        "Korba", "Korea", "Mahasamund", "Manendragarh-Chirmiri-Bharatpur", "Mohla-Manpur-Ambagarh Chowki",
+        "Mungeli", "Narayanpur", "Raigarh", "Raipur", "Rajnandgaon", "Sakti", "Sarangarh-Bilaigarh",
+        "Sukma", "Surajpur", "Surguja",
+    ],
+    "Dadra and Nagar Haveli and Daman and Diu": ["Dadra And Nagar Haveli", "Daman", "Diu"],
+    "Delhi": [
+        "Central Delhi", "East Delhi", "New Delhi", "North Delhi", "North East Delhi", "North West Delhi",
+        "Shahdara", "South Delhi", "South East Delhi", "South West Delhi", "West Delhi",
+    ],
+    "Goa": ["North Goa", "South Goa"],
+    "Gujarat": [
+        "Ahmedabad", "Amreli", "Anand", "Aravalli", "Banaskantha", "Bharuch", "Bhavnagar", "Botad",
+        "Chhota Udaipur", "Dahod", "Dang", "Devbhoomi Dwarka", "Gandhinagar", "Gir Somnath",
+        "Jamnagar", "Junagadh", "Kachchh", "Kheda", "Mahisagar", "Mehsana", "Morbi", "Narmada",
+        "Navsari", "Panchmahal", "Patan", "Porbandar", "Rajkot", "Sabarkantha", "Surat",
+        "Surendranagar", "Tapi", "Vadodara", "Valsad",
+    ],
+    "Haryana": [
+        "Ambala", "Bhiwani", "Charkhi Dadri", "Faridabad", "Fatehabad", "Gurugram", "Hisar",
+        "Jhajjar", "Jind", "Kaithal", "Karnal", "Kurukshetra", "Mahendragarh", "Nuh", "Palwal",
+        "Panchkula", "Panipat", "Rewari", "Rohtak", "Sirsa", "Sonipat", "Yamunanagar",
+    ],
+    "Himachal Pradesh": [
+        "Bilaspur", "Chamba", "Hamirpur", "Kangra", "Kinnaur", "Kullu", "Lahaul And Spiti",
+        "Mandi", "Shimla", "Sirmaur", "Solan", "Una",
+    ],
+    "Jammu and Kashmir": [
+        "Anantnag", "Bandipora", "Baramulla", "Budgam", "Doda", "Ganderbal", "Jammu", "Kathua",
+        "Kishtwar", "Kulgam", "Kupwara", "Poonch", "Pulwama", "Rajouri", "Ramban", "Reasi",
+        "Samba", "Shopian", "Srinagar", "Udhampur",
+    ],
+    "Jharkhand": [
+        "Bokaro", "Chatra", "Deoghar", "Dhanbad", "Dumka", "East Singhbhum", "Garhwa", "Giridih",
+        "Godda", "Gumla", "Hazaribagh", "Jamtara", "Khunti", "Koderma", "Latehar", "Lohardaga",
+        "Pakur", "Palamu", "Ramgarh", "Ranchi", "Sahebganj", "Saraikela Kharsawan", "Simdega",
+        "West Singhbhum",
+    ],
+    "Karnataka": [
+        "Bagalkote", "Ballari", "Belagavi", "Bengaluru Rural", "Bengaluru South", "Bengaluru Urban",
+        "Bidar", "Chamarajanagar", "Chikkaballapura", "Chikkamagaluru", "Chitradurga",
+        "Dakshina Kannada", "Davanagere", "Dharwad", "Gadag", "Hassan", "Haveri", "Kalaburagi",
+        "Kodagu", "Kolar", "Koppal", "Mandya", "Mysuru", "Raichur", "Ramanagara", "Shivamogga",
+        "Tumakuru", "Udupi", "Uttara Kannada", "Vijayanagara", "Vijayapura", "Yadgir",
+    ],
+    "Kerala": [
+        "Alappuzha", "Ernakulam", "Idukki", "Kannur", "Kasaragod", "Kollam", "Kottayam",
+        "Kozhikode", "Malappuram", "Palakkad", "Pathanamthitta", "Thiruvananthapuram", "Thrissur",
+        "Wayanad",
+    ],
+    "Ladakh": ["Kargil", "Leh Ladakh"],
+    "Lakshadweep": ["Lakshadweep District"],
+    "Madhya Pradesh": [
+        "Agar Malwa", "Alirajpur", "Anuppur", "Ashoknagar", "Balaghat", "Barwani", "Betul", "Bhind",
+        "Bhopal", "Burhanpur", "Chhatarpur", "Chhindwara", "Damoh", "Datia", "Dewas", "Dhar",
+        "Dindori", "Guna", "Gwalior", "Harda", "Indore", "Jabalpur", "Jhabua", "Katni", "Khandwa",
+        "Khargone", "Maihar", "Mandla", "Mandsaur", "Mauganj", "Morena", "Narmadapuram", "Narsinghpur",
+        "Neemuch", "Niwari", "Pandhurna", "Panna", "Raisen", "Rajgarh", "Ratlam", "Rewa", "Sagar",
+        "Satna", "Sehore", "Seoni", "Shahdol", "Shajapur", "Sheopur", "Shivpuri", "Sidhi",
+        "Singrauli", "Tikamgarh", "Ujjain", "Umaria", "Vidisha",
+    ],
+    "Maharashtra": [
+        "Ahilyanagar", "Akola", "Amravati", "Beed", "Bhandara", "Buldhana", "Chandrapur",
+        "Chhatrapati Sambhajinagar", "Dharashiv", "Dhule", "Gadchiroli", "Gondia", "Hingoli",
+        "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai", "Mumbai Suburban", "Nagpur", "Nanded",
+        "Nandurbar", "Nashik", "Palghar", "Parbhani", "Pune", "Raigad", "Ratnagiri", "Sangli",
+        "Satara", "Sindhudurg", "Solapur", "Thane", "Wardha", "Washim", "Yavatmal",
+    ],
+    "Manipur": [
+        "Bishnupur", "Chandel", "Churachandpur", "Imphal East", "Imphal West", "Jiribam", "Kakching",
+        "Kamjong", "Kangpokpi", "Noney", "Pherzawl", "Senapati", "Tamenglong", "Tengnoupal",
+        "Thoubal", "Ukhrul",
+    ],
+    "Meghalaya": [
+        "East Garo Hills", "East Jaintia Hills", "East Khasi Hills", "Eastern West Khasi Hills",
+        "North Garo Hills", "Ri Bhoi", "South Garo Hills", "South West Garo Hills",
+        "South West Khasi Hills", "West Garo Hills", "West Jaintia Hills", "West Khasi Hills",
+    ],
+    "Mizoram": [
+        "Aizawl", "Champhai", "Hnahthial", "Khawzawl", "Kolasib", "Lawngtlai", "Lunglei",
+        "Mamit", "Saitual", "Serchhip", "Siaha",
+    ],
+    "Nagaland": [
+        "Chumoukedima", "Dimapur", "Kiphire", "Kohima", "Longleng", "Meluri", "Mokokchung",
+        "Mon", "Niuland", "Noklak", "Peren", "Phek", "Shamator", "Tseminyu", "Tuensang",
+        "Wokha", "Zunheboto",
+    ],
+    "Odisha": [
+        "Angul", "Balangir", "Balasore", "Bargarh", "Bhadrak", "Boudh", "Cuttack", "Deogarh",
+        "Dhenkanal", "Gajapati", "Ganjam", "Jagatsinghapur", "Jajpur", "Jharsuguda", "Kalahandi",
+        "Kandhamal", "Kendrapara", "Keonjhar", "Khordha", "Koraput", "Malkangiri", "Mayurbhanj",
+        "Nabarangpur", "Nayagarh", "Nuapada", "Puri", "Rayagada", "Sambalpur", "Subarnapur",
+        "Sundargarh",
+    ],
+    "Puducherry": ["Karaikal", "Mahe", "Puducherry", "Yanam"],
+    "Punjab": [
+        "Amritsar", "Barnala", "Bathinda", "Faridkot", "Fatehgarh Sahib", "Fazilka", "Ferozepur",
+        "Gurdaspur", "Hoshiarpur", "Jalandhar", "Kapurthala", "Ludhiana", "Malerkotla", "Mansa",
+        "Moga", "Pathankot", "Patiala", "Rupnagar", "S.A.S Nagar", "Sangrur",
+        "Shahid Bhagat Singh Nagar", "Sri Muktsar Sahib", "Tarn Taran",
+    ],
+    "Rajasthan": [
+        "Ajmer", "Alwar", "Balotra", "Banswara", "Baran", "Barmer", "Beawar", "Bharatpur",
+        "Bhilwara", "Bikaner", "Bundi", "Chittorgarh", "Churu", "Dausa", "Deeg", "Dholpur",
+        "Didwana-Kuchaman", "Dudu", "Dungarpur", "Ganganagar", "Gangapur City", "Hanumangarh",
+        "Jaipur", "Jaipur Rural", "Jaisalmer", "Jalore", "Jhalawar", "Jhunjhunu", "Jodhpur",
+        "Jodhpur Rural", "Karauli", "Kekri", "Khairthal-Tijara", "Kota", "Kotputli-Behror",
+        "Nagaur", "Neem Ka Thana", "Pali", "Phalodi", "Pratapgarh", "Rajsamand", "Salumbar",
+        "Sawai Madhopur", "Shahpura", "Sikar", "Sirohi", "Tonk", "Udaipur",
+    ],
+    "Sikkim": ["Gangtok", "Gyalshing", "Mangan", "Namchi", "Pakyong", "Soreng"],
     "Tamil Nadu": [
-        "Ariyalur",
-        "Chengalpattu",
-        "Chennai",
-        "Coimbatore",
-        "Cuddalore",
-        "Dharmapuri",
-        "Dindigul",
-        "Erode",
-        "Kallakurichi",
-        "Kancheepuram",
-        "Kanniyakumari",
-        "Karur",
-        "Krishnagiri",
-        "Madurai",
-        "Mayiladuthurai",
-        "Nagapattinam",
-        "Namakkal",
-        "Perambalur",
-        "Pudukkottai",
-        "Ramanathapuram",
-        "Ranipet",
-        "Salem",
-        "Sivaganga",
-        "Tenkasi",
-        "Thanjavur",
-        "Theni",
-        "The Nilgiris",
-        "Thoothukudi",
-        "Tiruchirappalli",
-        "Tirunelveli",
-        "Tirupathur",
-        "Tiruppur",
-        "Tiruvallur",
-        "Tiruvannamalai",
-        "Tiruvarur",
-        "Vellore",
-        "Viluppuram",
+        "Ariyalur", "Chengalpattu", "Chennai", "Coimbatore", "Cuddalore", "Dharmapuri",
+        "Dindigul", "Erode", "Kallakurichi", "Kancheepuram", "Kanniyakumari", "Karur",
+        "Krishnagiri", "Madurai", "Mayiladuthurai", "Nagapattinam", "Namakkal", "Perambalur",
+        "Pudukkottai", "Ramanathapuram", "Ranipet", "Salem", "Sivaganga", "Tenkasi", "Thanjavur",
+        "Theni", "The Nilgiris", "Thoothukudi", "Tiruchirappalli", "Tirunelveli", "Tirupathur",
+        "Tiruppur", "Tiruvallur", "Tiruvannamalai", "Tiruvarur", "Vellore", "Viluppuram",
         "Virudhunagar",
+    ],
+    "Telangana": [
+        "Adilabad", "Bhadradri Kothagudem", "Hanumakonda", "Hyderabad", "Jagitial", "Jangoan",
+        "Jayashankar Bhupalapally", "Jogulamba Gadwal", "Kamareddy", "Karimnagar", "Khammam",
+        "Kumuram Bheem Asifabad", "Mahabubabad", "Mahabubnagar", "Mancherial", "Medak",
+        "Medchal Malkajgiri", "Mulugu", "Nagarkurnool", "Nalgonda", "Narayanpet", "Nirmal",
+        "Nizamabad", "Peddapalli", "Rajanna Sircilla", "Rangareddy", "Sangareddy", "Siddipet",
+        "Suryapet", "Vikarabad", "Wanaparthy", "Warangal", "Yadadri Bhuvanagiri",
+    ],
+    "Tripura": ["Dhalai", "Gomati", "Khowai", "North Tripura", "Sepahijala", "South Tripura", "Unakoti", "West Tripura"],
+    "Uttar Pradesh": [
+        "Agra", "Aligarh", "Ambedkar Nagar", "Amethi", "Amroha", "Auraiya", "Ayodhya", "Azamgarh",
+        "Baghpat", "Bahraich", "Ballia", "Balrampur", "Banda", "Barabanki", "Bareilly", "Basti",
+        "Bhadohi", "Bijnor", "Budaun", "Bulandshahr", "Chandauli", "Chitrakoot", "Deoria", "Etah",
+        "Etawah", "Farrukhabad", "Fatehpur", "Firozabad", "Gautam Buddha Nagar", "Ghaziabad",
+        "Ghazipur", "Gonda", "Gorakhpur", "Hamirpur", "Hapur", "Hardoi", "Hathras", "Jalaun",
+        "Jaunpur", "Jhansi", "Kannauj", "Kanpur Dehat", "Kanpur Nagar", "Kasganj", "Kaushambi",
+        "Kheri", "Kushinagar", "Lalitpur", "Lucknow", "Maharajganj", "Mahoba", "Mainpuri",
+        "Mathura", "Mau", "Meerut", "Mirzapur", "Moradabad", "Muzaffarnagar", "Pilibhit",
+        "Pratapgarh", "Prayagraj", "Raebareli", "Rampur", "Saharanpur", "Sambhal", "Sant Kabir Nagar",
+        "Shahjahanpur", "Shamli", "Shravasti", "Siddharthnagar", "Sitapur", "Sonbhadra",
+        "Sultanpur", "Unnao", "Varanasi",
+    ],
+    "Uttarakhand": [
+        "Almora", "Bageshwar", "Chamoli", "Champawat", "Dehradun", "Haridwar", "Nainital",
+        "Pauri Garhwal", "Pithoragarh", "Rudraprayag", "Tehri Garhwal", "Udham Singh Nagar",
+        "Uttarkashi",
+    ],
+    "West Bengal": [
+        "Alipurduar", "Bankura", "Birbhum", "Cooch Behar", "Dakshin Dinajpur", "Darjeeling",
+        "Hooghly", "Howrah", "Jalpaiguri", "Jhargram", "Kalimpong", "Kolkata", "Malda",
+        "Murshidabad", "Nadia", "North 24 Parganas", "Paschim Bardhaman", "Paschim Medinipur",
+        "Purba Bardhaman", "Purba Medinipur", "Purulia", "South 24 Parganas", "Uttar Dinajpur",
     ],
 }
 INDIAN_LOCATIONS = [
@@ -928,6 +1078,32 @@ def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     return str(path.relative_to(PROJECT_ROOT))
 
 
+def auto_fill_location_from_pincode(pincode: str, location_key: int) -> dict[str, str] | None:
+    """
+    Auto-fill location details from pincode.
+    Updates session state if valid pincode is provided.
+    
+    Args:
+        pincode: 6-digit Indian pincode
+        location_key: Key for session state storage
+        
+    Returns:
+        Dictionary with state, district, municipality, village if found, else None
+    """
+    if not pincode or not is_valid_pincode(pincode):
+        return None
+    
+    location_data = get_location_from_pincode(pincode)
+    if location_data:
+        # Update session state with auto-filled values
+        st.session_state[f"new_state_f_{location_key}"] = location_data.get("state", "Not provided")
+        st.session_state[f"new_district_f_{location_key}"] = location_data.get("district", "Not provided")
+        st.session_state[f"new_municipality_f_{location_key}"] = location_data.get("municipality", "Not provided")
+        st.session_state[f"new_village_f_{location_key}"] = location_data.get("village", "Not provided")
+        return location_data
+    return None
+
+
 def build_area_options(saved_areas: list[str]) -> list[str]:
     custom_areas = [
         area.strip()
@@ -1445,9 +1621,31 @@ with main_col:
 
         location_key = st.session_state.form_key_f
         st.markdown("Location")
-        id_col, state_col, district_col = st.columns([0.8, 1.1, 1.1])
+        
+        # Show pincode first for auto-fill
+        id_col, pincode_col = st.columns([1, 1.5])
         new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
+        new_pincode = pincode_col.text_input(
+            "Pincode (optional)", 
+            max_chars=6, 
+            key=f"new_pincode_f_{location_key}",
+            placeholder="Enter 6-digit pincode to auto-fill location",
+            help="Enter a 6-digit pincode to auto-fill location details"
+        )
+        
+        # Auto-fill location when valid pincode is entered
+        location_auto_filled = False
+        if new_pincode and is_valid_pincode(new_pincode):
+            auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
+            if auto_fill_result:
+                location_auto_filled = True
+                st.info(f"✓ Location auto-filled from pincode: {auto_fill_result.get('state')}, {auto_fill_result.get('district')}")
+        
+        # Location selectors
+        state_col, district_col = st.columns([1.1, 1.1])
+        state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
+        
         district_options = build_cascading_location_options(
             all_df,
             "district",
@@ -1468,7 +1666,8 @@ with main_col:
         village_filters = {**area_filters, "area": new_area}
         village_options = build_cascading_location_options(all_df, "village", village_filters)
         new_village = select_valid_option("Village", village_options, f"new_village_f_{location_key}", loc3)
-        new_pincode = st.text_input("Pincode (optional)", max_chars=6, key=f"new_pincode_f_{location_key}")
+
+
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
@@ -1492,22 +1691,42 @@ with main_col:
             camera_file = None
             uploaded_file = None
             photo_verified = False
+            
+            # Image upload section with better UX
+            st.markdown("#### 📸 Attach Image (Optional)")
+            image_mode = st.radio(
+                "Choose image source:",
+                ["No image", "Take photo", "Upload file"],
+                horizontal=True,
+                key=f"image_mode_f_{st.session_state.form_key_f}",
+            )
+            
             if image_mode == "Take photo":
                 camera_file = st.camera_input(
-                    "Take photo",
+                    "Take a photo of the issue",
                     key=f"new_camera_f_{st.session_state.form_key_f}",
                 )
                 if camera_file:
-                    photo_verified = st.checkbox(
-                        "I verified this photo and want to upload it",
+                    col1, col2 = st.columns([2, 1])
+                    col1.image(camera_file, caption="Photo Preview", use_container_width=True)
+                    photo_verified = col2.checkbox(
+                        "✓ I verified this photo and want to upload it",
                         key=f"verify_camera_f_{st.session_state.form_key_f}",
                     )
+                    if photo_verified:
+                        col2.success("Photo ready to upload")
             elif image_mode == "Upload file":
                 uploaded_file = st.file_uploader(
-                    "Upload image file",
+                    "Upload image file (JPG, PNG, or WebP)",
                     type=["jpg", "jpeg", "png", "webp"],
                     key=f"new_image_f_{st.session_state.form_key_f}",
+                    help="Select an image file to attach to your complaint"
                 )
+                if uploaded_file:
+                    col1, col2 = st.columns([2, 1])
+                    col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
+                    col2.success(f"File: {uploaded_file.name}")
+            
             new_desc = st.text_area(
                 "Description",
                 placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
