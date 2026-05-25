@@ -45,6 +45,8 @@ COMPLAINT_COLUMNS = [
     "priority",
     "status",
     "description",
+    "user_contact",
+    "image_path",
 ]
 
 
@@ -141,7 +143,9 @@ def init_db() -> None:
                     category     TEXT NOT NULL,
                     priority     TEXT,
                     status       TEXT NOT NULL DEFAULT 'Pending',
-                    description  TEXT NOT NULL
+                    description  TEXT NOT NULL,
+                    user_contact TEXT,
+                    image_path   TEXT
                 )
                 """
             )
@@ -156,6 +160,10 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
     columns = {
         row["name"]: dict(row) for row in connection.execute("PRAGMA table_info(complaints)").fetchall()
     }
+    for column_name in ["user_contact", "image_path"]:
+        if column_name not in columns:
+            connection.execute(f"ALTER TABLE complaints ADD COLUMN {column_name} TEXT")
+            columns[column_name] = {"name": column_name, "notnull": 0}
     needs_rebuild = (
         columns.get("closed_date", {}).get("notnull") == 1
         or columns.get("priority", {}).get("notnull") == 1
@@ -173,14 +181,17 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
             category     TEXT NOT NULL,
             priority     TEXT,
             status       TEXT NOT NULL DEFAULT 'Pending',
-            description  TEXT NOT NULL
+            description  TEXT NOT NULL,
+            user_contact TEXT,
+            image_path   TEXT
         )
         """
     )
     connection.execute(
         """
         INSERT INTO complaints_new (
-            id, created_date, closed_date, area, category, priority, status, description
+            id, created_date, closed_date, area, category, priority, status, description,
+            user_contact, image_path
         )
         SELECT
             id,
@@ -190,7 +201,9 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
             category,
             NULLIF(priority, ''),
             status,
-            description
+            description,
+            user_contact,
+            image_path
         FROM complaints
         """
     )
@@ -263,12 +276,10 @@ def insert_complaint(record: dict[str, object]) -> dict[str, object]:
             )
             return _normalise_record(response.data[0])
         with get_connection() as connection:
+            placeholders = ", ".join("?" for _ in COMPLAINT_COLUMNS)
+            columns_sql = ", ".join(COMPLAINT_COLUMNS)
             connection.execute(
-                """
-                INSERT INTO complaints
-                    (id, created_date, closed_date, area, category, priority, status, description)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                f"INSERT INTO complaints ({columns_sql}) VALUES ({placeholders})",
                 tuple(record[column] for column in COMPLAINT_COLUMNS),
             )
     except Exception as exc:
@@ -282,7 +293,8 @@ def update_complaint_record(
     complaint_id: str, record: dict[str, object]
 ) -> dict[str, object] | None:
     init_db()
-    record = _normalise_record({**record, "id": complaint_id})
+    existing = get_complaint_by_id(complaint_id) or {}
+    record = _normalise_record({**existing, **record, "id": complaint_id})
     updates = {key: value for key, value in record.items() if key != "id"}
     if using_supabase():
         response = (
@@ -296,23 +308,11 @@ def update_complaint_record(
             return None
         return _normalise_record(response.data[0])
     with get_connection() as connection:
+        update_columns = [column for column in COMPLAINT_COLUMNS if column != "id"]
+        set_clause = ", ".join(f"{column} = ?" for column in update_columns)
         connection.execute(
-            """
-            UPDATE complaints
-            SET created_date = ?, closed_date = ?, area = ?, category = ?,
-                priority = ?, status = ?, description = ?
-            WHERE id = ?
-            """,
-            (
-                record["created_date"],
-                record["closed_date"],
-                record["area"],
-                record["category"],
-                record["priority"],
-                record["status"],
-                record["description"],
-                complaint_id,
-            ),
+            f"UPDATE complaints SET {set_clause} WHERE id = ?",
+            tuple(record[column] for column in update_columns) + (complaint_id,),
         )
     return get_complaint_by_id(complaint_id)
 

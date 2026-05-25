@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from io import StringIO
 from pathlib import Path
+import re
 from typing import Annotated, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query, status
@@ -63,12 +64,26 @@ class ComplaintCreateInput(BaseModel):
     created_date: date
     area:         str  = Field(min_length=2, max_length=50)
     category:     str  = Field(min_length=2, max_length=50)
+    priority:     Literal["Low", "Medium", "High"] | None = None
+    user_contact: str | None = Field(default=None, min_length=5, max_length=100)
+    image_path:    str | None = Field(default=None, max_length=300)
     description:  str  = Field(min_length=10, max_length=300)
 
-    @field_validator("id", "area", "category", mode="before")
+    @field_validator("id", "area", "category", "user_contact", "image_path", mode="before")
     @classmethod
     def strip_strings(cls, v: Optional[str]) -> Optional[str]:
         return v.strip() if isinstance(v, str) else v
+
+    @field_validator("user_contact")
+    @classmethod
+    def validate_contact(cls, v: str | None) -> str | None:
+        if not v:
+            return v
+        email_ok = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v)
+        mobile_ok = re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", v)
+        if not (email_ok or mobile_ok):
+            raise ValueError("user_contact must be a valid email address or mobile number")
+        return v
 
     @field_validator("description", mode="before")
     @classmethod
@@ -91,12 +106,25 @@ class ComplaintUpdate(BaseModel):
     category:     str  | None = Field(default=None, min_length=2, max_length=50)
     priority:     Literal["Low", "Medium", "High"]            | None = None
     status:       Literal["Pending", "In Progress", "Closed"] | None = None
+    user_contact: str  | None = Field(default=None, min_length=5, max_length=100)
+    image_path:    str  | None = Field(default=None, max_length=300)
     description:  str  | None = Field(default=None, min_length=10, max_length=300)
 
-    @field_validator("area", "category", mode="before")
+    @field_validator("area", "category", "user_contact", "image_path", mode="before")
     @classmethod
     def strip_strings(cls, v: str | None) -> str | None:
         return v.strip() if isinstance(v, str) else v
+
+    @field_validator("user_contact")
+    @classmethod
+    def validate_contact(cls, v: str | None) -> str | None:
+        if not v:
+            return v
+        email_ok = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v)
+        mobile_ok = re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", v)
+        if not (email_ok or mobile_ok):
+            raise ValueError("user_contact must be a valid email address or mobile number")
+        return v
 
     @field_validator("description", mode="before")
     @classmethod
@@ -189,9 +217,11 @@ def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
                 "closed_date": None,
                 "area": payload.area,
                 "category": payload.category,
-                "priority": None,
+                "priority": payload.priority,
                 "status": "Pending",
                 "description": payload.description,
+                "user_contact": payload.user_contact,
+                "image_path": payload.image_path,
             }
         )
     except DuplicateComplaintError as exc:

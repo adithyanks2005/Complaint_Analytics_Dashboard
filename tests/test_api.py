@@ -79,6 +79,48 @@ def test_crud_flow_inserts_updates_reads_and_deletes_sample_record():
     assert delete_response.json()["message"] == "Complaint deleted successfully"
 
 
+def test_create_complaint_accepts_priority():
+    complaint_id = "CMP-PRIORITY-901"
+    payload = {
+        "id":           complaint_id,
+        "created_date": "2026-05-10",
+        "area":         "West Zone",
+        "category":     "Street Lights",
+        "priority":     "High",
+        "description":  "Street light outage near main road needs attention",
+    }
+
+    response = client.post("/complaints", json=payload)
+    assert response.status_code in {201, 409}
+    if response.status_code == 201:
+        assert response.json()["priority"] == "High"
+
+    client.delete(f"/complaints/{complaint_id}")
+
+
+def test_create_complaint_accepts_contact_and_image_reference():
+    complaint_id = "CMP-IMAGE-901"
+    payload = {
+        "id":           complaint_id,
+        "created_date": "2026-05-11",
+        "area":         "North Zone",
+        "category":     "Garbage",
+        "priority":     "Medium",
+        "user_contact": "citizen@example.com",
+        "image_path":   "data/uploads/sample.jpg",
+        "description":  "Garbage pile image attached for cleanup request",
+    }
+
+    response = client.post("/complaints", json=payload)
+    assert response.status_code in {201, 409}
+    if response.status_code == 201:
+        created = response.json()
+        assert created["user_contact"] == "citizen@example.com"
+        assert created["image_path"] == "data/uploads/sample.jpg"
+
+    client.delete(f"/complaints/{complaint_id}")
+
+
 def test_admin_validation_rejects_closed_status_without_closure_date():
     complaint_id = "CMP-BAD-901"
     client.post(

@@ -11,9 +11,17 @@ create table if not exists public.complaints (
     status text not null default 'Pending'
         check (status in ('Pending', 'In Progress', 'Closed')),
     description text not null check (char_length(trim(description)) >= 10),
+    user_contact text,
+    image_path text,
     inserted_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
+
+alter table public.complaints
+    add column if not exists user_contact text;
+
+alter table public.complaints
+    add column if not exists image_path text;
 
 create index if not exists complaints_created_date_idx
     on public.complaints (created_date desc);

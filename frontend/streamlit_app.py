@@ -5,6 +5,8 @@ Uses Supabase when configured, with SQLite as the local fallback
 from __future__ import annotations
 
 import sys
+import re
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 
@@ -52,9 +54,11 @@ def _find_data_dir() -> Path:
 DATA_DIR = _find_data_dir()
 DB_PATH  = DATA_DIR / "complaints.db"
 CSV_PATH = DATA_DIR / "sample_complaints.csv"
+UPLOAD_DIR = DATA_DIR / "uploads"
 
 # Ensure data directory exists
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
@@ -380,6 +384,10 @@ if "drawer_open"     not in st.session_state: st.session_state.drawer_open     =
 if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
 if "new_complaint_id" not in st.session_state:
     st.session_state.new_complaint_id = None
+if "last_complaint_receipt" not in st.session_state:
+    st.session_state.last_complaint_receipt = None
+if "citizen_contact" not in st.session_state:
+    st.session_state.citizen_contact = None
 
 
 # ── Data Helpers ───────────────────────────────────────────────────────────────
@@ -414,6 +422,56 @@ def _refresh():
 
 def get_next_complaint_id() -> str:
     return generate_next_id_supabase() if using_supabase() else generate_next_id()
+
+
+def infer_priority(description: str, category: str) -> str:
+    text = f"{category} {description}".lower()
+    high_terms = [
+        "urgent", "emergency", "danger", "hazard", "sewage", "overflow",
+        "contamination", "accident", "fire", "flood", "blocked", "leak",
+    ]
+    medium_terms = ["broken", "delay", "damaged", "repair", "outage", "garbage", "drainage"]
+    if any(term in text for term in high_terms):
+        return "High"
+    if any(term in text for term in medium_terms):
+        return "Medium"
+    return "Low"
+
+
+def build_receipt(complaint: dict[str, object]) -> str:
+    fields = [
+        ("Complaint ID", complaint["id"]),
+        ("Date", complaint["created_date"]),
+        ("Area", complaint["area"]),
+        ("Category", complaint["category"]),
+        ("Priority", complaint["priority"] or "Not set"),
+        ("Status", complaint["status"]),
+        ("Submitted By", complaint.get("user_contact") or "Not provided"),
+        ("Image", complaint.get("image_path") or "No image attached"),
+        ("Description", complaint["description"]),
+    ]
+    lines = ["Complaint Receipt", "=================", ""]
+    lines.extend(f"{label}: {value}" for label, value in fields)
+    return "\n".join(lines)
+
+
+def is_valid_contact(value: str) -> bool:
+    value = value.strip()
+    email_ok = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value)
+    mobile_ok = re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", value)
+    return bool(email_ok or mobile_ok)
+
+
+def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
+    if uploaded_file is None:
+        return None
+    suffix = Path(uploaded_file.name).suffix.lower()
+    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+        suffix = ".jpg"
+    filename = f"{complaint_id}_{uuid.uuid4().hex[:8]}{suffix}"
+    path = UPLOAD_DIR / filename
+    path.write_bytes(uploaded_file.getvalue())
+    return str(path.relative_to(PROJECT_ROOT))
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -802,46 +860,117 @@ with main_col:
         if st.session_state.submit_msg:
             st.success(st.session_state.submit_msg)
             st.session_state.submit_msg = None
+        if st.session_state.last_complaint_receipt:
+            receipt = st.session_state.last_complaint_receipt
+            r1, r2, r3, r4 = st.columns(4)
+            r1.metric("Complaint ID", receipt["id"])
+            r2.metric("Status", receipt["status"])
+            r3.metric("Priority", receipt["priority"] or "Not set")
+            r4.metric("Area", receipt["area"])
+            if receipt.get("image_path"):
+                image_file = PROJECT_ROOT / str(receipt["image_path"])
+                if image_file.exists():
+                    st.image(str(image_file), caption="Attached image", use_container_width=True)
+            st.download_button(
+                "Download Receipt",
+                data=build_receipt(receipt).encode("utf-8"),
+                file_name=f"{receipt['id']}_receipt.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
 
         st.subheader("Raise New Complaint")
 
-        if "form_key_f" not in st.session_state:
-            st.session_state.form_key_f = 0
-        if not st.session_state.new_complaint_id:
-            st.session_state.new_complaint_id = get_next_complaint_id()
-
-        with st.form("new_complaint", clear_on_submit=False):
-            c1, c2, c3 = st.columns(3)
-            new_id       = c1.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
-            new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
-            new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
-            new_date     = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
-            new_desc     = st.text_area("Description", placeholder="Min 10 characters", key=f"new_desc_f_{st.session_state.form_key_f}")
-
-            if st.form_submit_button("Submit"):
-                if len(new_desc.strip()) < 10:
-                    st.error("Description too short")
-                else:
-                    try:
-                        insert_complaint({
-                            "id": new_id.strip(),
-                            "created_date": new_date.isoformat(),
-                            "closed_date": None,
-                            "area": new_area,
-                            "category": new_category,
-                            "priority": None,
-                            "status": "Pending",
-                            "description": new_desc.strip(),
-                        })
-                        st.session_state.submit_msg = f"Complaint {new_id} registered"
-                        st.session_state.form_key_f += 1
-                        st.session_state.new_complaint_id = get_next_complaint_id()
-                        _refresh()
+        if not st.session_state.citizen_contact:
+            with st.form("citizen_login", clear_on_submit=False):
+                contact_input = st.text_input(
+                    "Mobile number or email",
+                    placeholder="Enter mobile number or email ID",
+                    key="citizen_contact_input",
+                )
+                if st.form_submit_button("Continue", use_container_width=True):
+                    contact_value = contact_input.strip()
+                    if not is_valid_contact(contact_value):
+                        st.error("Enter a valid email ID or mobile number")
+                    else:
+                        st.session_state.citizen_contact = contact_value
                         st.rerun()
-                    except DuplicateComplaintError:
-                        st.error("Complaint ID already exists")
-                    except Exception as e:
-                        st.error(f"Failed to save complaint: {e}")
+        else:
+            login_col, action_col = st.columns([3, 1])
+            login_col.info(f"Submitting as {st.session_state.citizen_contact}")
+            if action_col.button("Change Login", use_container_width=True):
+                st.session_state.citizen_contact = None
+                st.rerun()
+
+            if "form_key_f" not in st.session_state:
+                st.session_state.form_key_f = 0
+            if not st.session_state.new_complaint_id:
+                st.session_state.new_complaint_id = get_next_complaint_id()
+
+            with st.form("new_complaint", clear_on_submit=False):
+                c1, c2, c3 = st.columns(3)
+                new_id       = c1.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
+                new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
+                new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
+                custom_area = c2.text_input("New area (optional)", placeholder="Use when area is not listed", key=f"custom_area_f_{st.session_state.form_key_f}")
+                custom_category = c3.text_input("New category (optional)", placeholder="Use when category is not listed", key=f"custom_category_f_{st.session_state.form_key_f}")
+                new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
+                priority_choice = st.selectbox(
+                    "Priority",
+                    ["Auto detect", "Low", "Medium", "High"],
+                    key=f"new_priority_f_{st.session_state.form_key_f}",
+                )
+                image_file = st.file_uploader(
+                    "Attach image (optional)",
+                    type=["jpg", "jpeg", "png", "webp"],
+                    key=f"new_image_f_{st.session_state.form_key_f}",
+                )
+                new_desc = st.text_area(
+                    "Description",
+                    placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
+                    key=f"new_desc_f_{st.session_state.form_key_f}",
+                )
+
+                if st.form_submit_button("Submit"):
+                    final_area = custom_area.strip() or new_area
+                    final_category = custom_category.strip() or new_category
+                    final_desc = new_desc.strip()
+                    final_priority = (
+                        infer_priority(final_desc, final_category)
+                        if priority_choice == "Auto detect"
+                        else priority_choice
+                    )
+                    if len(final_area) < 2:
+                        st.error("Area must be at least 2 characters")
+                    elif len(final_category) < 2:
+                        st.error("Category must be at least 2 characters")
+                    elif len(final_desc) < 10:
+                        st.error("Description too short")
+                    else:
+                        try:
+                            image_path = save_uploaded_image(image_file, new_id.strip())
+                            created = insert_complaint({
+                                "id": new_id.strip(),
+                                "created_date": new_date.isoformat(),
+                                "closed_date": None,
+                                "area": final_area,
+                                "category": final_category,
+                                "priority": final_priority,
+                                "status": "Pending",
+                                "description": final_desc,
+                                "user_contact": st.session_state.citizen_contact,
+                                "image_path": image_path,
+                            })
+                            st.session_state.submit_msg = f"Complaint {new_id} registered"
+                            st.session_state.last_complaint_receipt = created
+                            st.session_state.form_key_f += 1
+                            st.session_state.new_complaint_id = get_next_complaint_id()
+                            _refresh()
+                            st.rerun()
+                        except DuplicateComplaintError:
+                            st.error("Complaint ID already exists")
+                        except Exception as e:
+                            st.error(f"Failed to save complaint: {e}")
 
 # ── Admin Panel (below dashboard when logged in) ───────────────────────────────
 if st.session_state.is_admin:
