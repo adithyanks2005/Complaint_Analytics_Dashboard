@@ -107,6 +107,48 @@ INDIAN_STATES = [
     "Uttarakhand",
     "West Bengal",
 ]
+STATE_DISTRICT_OPTIONS = {
+    "Tamil Nadu": [
+        "Ariyalur",
+        "Chengalpattu",
+        "Chennai",
+        "Coimbatore",
+        "Cuddalore",
+        "Dharmapuri",
+        "Dindigul",
+        "Erode",
+        "Kallakurichi",
+        "Kancheepuram",
+        "Kanniyakumari",
+        "Karur",
+        "Krishnagiri",
+        "Madurai",
+        "Mayiladuthurai",
+        "Nagapattinam",
+        "Namakkal",
+        "Perambalur",
+        "Pudukkottai",
+        "Ramanathapuram",
+        "Ranipet",
+        "Salem",
+        "Sivaganga",
+        "Tenkasi",
+        "Thanjavur",
+        "Theni",
+        "The Nilgiris",
+        "Thoothukudi",
+        "Tiruchirappalli",
+        "Tirunelveli",
+        "Tirupathur",
+        "Tiruppur",
+        "Tiruvallur",
+        "Tiruvannamalai",
+        "Tiruvarur",
+        "Vellore",
+        "Viluppuram",
+        "Virudhunagar",
+    ],
+}
 INDIAN_LOCATIONS = [
     "Agartala",
     "Agra",
@@ -850,6 +892,30 @@ def build_form_location_options(saved_options: list[str], fallback_options: list
     return ["Not provided", *options]
 
 
+def filter_location_rows(df: pd.DataFrame, filters: dict[str, str]) -> pd.DataFrame:
+    filtered = df.copy()
+    for column, value in filters.items():
+        if value and value != "Not provided" and column in filtered.columns:
+            filtered = filtered[filtered[column].fillna("").astype(str) == value]
+    return filtered
+
+
+def build_cascading_location_options(
+    df: pd.DataFrame,
+    column: str,
+    filters: dict[str, str],
+    fallback_options: list[str] | None = None,
+) -> list[str]:
+    filtered = filter_location_rows(df, filters)
+    return build_form_location_options(build_location_options(filtered, column), fallback_options)
+
+
+def select_valid_option(label: str, options: list[str], key: str, container=st) -> str:
+    if key in st.session_state and st.session_state[key] not in options:
+        st.session_state[key] = options[0]
+    return container.selectbox(label, options, key=key)
+
+
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     if uploaded_file is None:
         return None
@@ -940,10 +1006,6 @@ with st.sidebar:
     combined_locations = build_combined_location_options(all_df, areas)
     location_filter_options = [{"label": "All locations"}, *combined_locations]
     state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
-    district_options = build_form_location_options(build_location_options(all_df, "district"), INDIAN_LOCATIONS)
-    municipality_options = build_form_location_options(build_location_options(all_df, "municipality"), INDIAN_LOCATIONS)
-    village_options = build_form_location_options(build_location_options(all_df, "village"), INDIAN_LOCATIONS)
-    area_options = build_form_location_options(areas)
     categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
@@ -1381,16 +1443,34 @@ with main_col:
         if not st.session_state.new_complaint_id:
             st.session_state.new_complaint_id = get_next_complaint_id()
 
+        location_key = st.session_state.form_key_f
+        st.markdown("Location")
+        id_col, state_col, district_col = st.columns([0.8, 1.1, 1.1])
+        new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
+        new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
+        district_options = build_cascading_location_options(
+            all_df,
+            "district",
+            {"state": new_state},
+            STATE_DISTRICT_OPTIONS.get(new_state, []),
+        )
+        new_district = select_valid_option("District", district_options, f"new_district_f_{location_key}", district_col)
+
+        loc1, loc2, loc3 = st.columns(3)
+        location_filters = {"state": new_state, "district": new_district}
+        municipality_options = build_cascading_location_options(all_df, "municipality", location_filters)
+        new_municipality = select_valid_option("Municipality", municipality_options, f"new_municipality_f_{location_key}", loc1)
+
+        area_filters = {**location_filters, "municipality": new_municipality}
+        area_options = build_cascading_location_options(all_df, "area", area_filters)
+        new_area = select_valid_option("Area", area_options, f"new_area_f_{location_key}", loc2)
+
+        village_filters = {**area_filters, "area": new_area}
+        village_options = build_cascading_location_options(all_df, "village", village_filters)
+        new_village = select_valid_option("Village", village_options, f"new_village_f_{location_key}", loc3)
+        new_pincode = st.text_input("Pincode (optional)", max_chars=6, key=f"new_pincode_f_{location_key}")
+
         with st.form("new_complaint", clear_on_submit=False):
-            id_col, state_col, district_col = st.columns([0.8, 1.1, 1.1])
-            new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
-            new_state = state_col.selectbox("State", state_options, key=f"new_state_f_{st.session_state.form_key_f}")
-            new_district = district_col.selectbox("District", district_options, key=f"new_district_f_{st.session_state.form_key_f}")
-            loc1, loc2, loc3 = st.columns(3)
-            new_municipality = loc1.selectbox("Municipality", municipality_options, key=f"new_municipality_f_{st.session_state.form_key_f}")
-            new_area = loc2.selectbox("Area", area_options, key=f"new_area_f_{st.session_state.form_key_f}")
-            new_village = loc3.selectbox("Village", village_options, key=f"new_village_f_{st.session_state.form_key_f}")
-            new_pincode = st.text_input("Pincode (optional)", max_chars=6, key=f"new_pincode_f_{st.session_state.form_key_f}")
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
