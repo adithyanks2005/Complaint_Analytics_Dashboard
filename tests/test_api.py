@@ -1,3 +1,6 @@
+import csv
+from io import StringIO
+
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -38,6 +41,19 @@ def test_date_range_filter_returns_matching_records():
     complaints = response.json()
     assert complaints
     assert all("2026-04-" in item["created_date"] for item in complaints)
+
+
+def test_csv_export_uses_short_dates():
+    response = client.get(
+        "/complaints/export",
+        params={"start_date": "2026-04-01", "end_date": "2026-04-30"},
+    )
+    assert response.status_code == 200
+    complaints = list(csv.DictReader(StringIO(response.text)))
+    assert complaints
+    assert all(len(item["created_date"]) == 8 for item in complaints)
+    assert all(len(item["closed_date"]) == 8 for item in complaints if item["closed_date"])
+    assert all(item["created_date"][2] == "-" and item["created_date"][5] == "-" for item in complaints)
 
 
 def test_crud_flow_inserts_updates_reads_and_deletes_sample_record():

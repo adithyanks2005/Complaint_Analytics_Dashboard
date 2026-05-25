@@ -693,7 +693,7 @@ with main_col:
         st.subheader("Complaint Records")
         display_df = df.drop(columns=["closure_days"], errors="ignore").copy()
         formatted_dates = {
-            col: display_df[col].apply(lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else "")
+            col: display_df[col].apply(lambda x: x.strftime("%d-%m-%y") if pd.notna(x) else "")
             for col in ["created_date", "closed_date"]
             if col in display_df.columns
         }
