@@ -9,8 +9,8 @@ from backend.database import read_complaints_df
 
 def load_complaints() -> pd.DataFrame:
     df = read_complaints_df().copy()
-    created_date = pd.to_datetime(df["created_date"], errors="coerce")
-    closed_date = pd.to_datetime(df["closed_date"], errors="coerce")
+    created_date = pd.to_datetime(df["created_date"], errors="coerce", utc=True).dt.tz_localize(None)
+    closed_date = pd.to_datetime(df["closed_date"], errors="coerce", utc=True).dt.tz_localize(None)
     return df.assign(
         created_date=created_date,
         closed_date=closed_date,
@@ -114,9 +114,14 @@ def category_summary(df: pd.DataFrame) -> list[dict[str, object]]:
 def records(df: pd.DataFrame) -> list[dict[str, object]]:
     output = df.copy()
     # Format date columns as ISO strings; NaT → None
-    for col in ["created_date", "closed_date"]:
-        output[col] = output[col].dt.strftime("%Y-%m-%d")
-        output[col] = output[col].where(output[col].notna(), None)
+    output = output.assign(
+        **{
+            col: output[col].dt.strftime("%Y-%m-%d").where(
+                output[col].notna(), None
+            )
+            for col in ["created_date", "closed_date"]
+        }
+    )
     # Drop internal computed column — not part of the public API contract
     output = output.drop(columns=["closure_days"], errors="ignore")
     return output.to_dict(orient="records")

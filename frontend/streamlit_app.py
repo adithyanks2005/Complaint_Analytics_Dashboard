@@ -391,11 +391,14 @@ except Exception as e:
 
 @st.cache_data(ttl=30)
 def load_all() -> pd.DataFrame:
-    df = read_complaints_df()
-    df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
-    df["closed_date"]  = pd.to_datetime(df["closed_date"],  errors="coerce")
-    df["closure_days"] = (df["closed_date"] - df["created_date"]).dt.days
-    return df
+    df = read_complaints_df().copy()
+    created_date = pd.to_datetime(df["created_date"], errors="coerce", utc=True).dt.tz_localize(None)
+    closed_date = pd.to_datetime(df["closed_date"], errors="coerce", utc=True).dt.tz_localize(None)
+    return df.assign(
+        created_date=created_date,
+        closed_date=closed_date,
+        closure_days=(closed_date - created_date).dt.days,
+    )
 
 
 def filter_df(df, start, end, area, category, status):
@@ -780,11 +783,13 @@ with main_col:
     with tab_records:
         st.subheader("Complaint Records")
         display_df = df.drop(columns=["closure_days"], errors="ignore").copy()
-        for col in ["created_date", "closed_date"]:
-            if col in display_df.columns:
-                display_df[col] = display_df[col].apply(
-                    lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else ""
-                )
+        formatted_dates = {
+            col: display_df[col].apply(lambda x: x.strftime("%d-%m-%y") if pd.notna(x) else "")
+            for col in ["created_date", "closed_date"]
+            if col in display_df.columns
+        }
+        if formatted_dates:
+            display_df = display_df.assign(**formatted_dates)
         if not display_df.empty:
             st.dataframe(display_df, use_container_width=True, height=400, hide_index=True)
             csv_data = display_df.to_csv(index=False).encode("utf-8")

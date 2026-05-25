@@ -159,10 +159,14 @@ def export_complaints(
     status:     str  | None = None,
 ):
     df = filtered_data(start_date, end_date, area, category, status)
-    # Format dates and drop internal columns before export
+    # Keep exported dates compact so spreadsheet apps can show them in narrow columns.
     export_df = df.copy()
-    for col in ["created_date", "closed_date"]:
-        export_df[col] = export_df[col].dt.strftime("%Y-%m-%d")
+    export_df = export_df.assign(
+        **{
+            col: export_df[col].dt.strftime("%d-%m-%y")
+            for col in ["created_date", "closed_date"]
+        }
+    )
     export_df = export_df.drop(columns=["closure_days"], errors="ignore")
     buffer = StringIO()
     export_df.to_csv(buffer, index=False)
