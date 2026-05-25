@@ -4,16 +4,11 @@ Uses Supabase when configured, with SQLite as the local fallback
 """
 from __future__ import annotations
 
-import base64
 import sys
 import re
-import secrets
-import smtplib
 import uuid
-from datetime import date, datetime, timedelta
-from email.message import EmailMessage
+from datetime import date
 from pathlib import Path
-from urllib import error, parse, request
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -391,18 +386,6 @@ if "new_complaint_id" not in st.session_state:
     st.session_state.new_complaint_id = None
 if "last_complaint_receipt" not in st.session_state:
     st.session_state.last_complaint_receipt = None
-if "citizen_contact" not in st.session_state:
-    st.session_state.citizen_contact = None
-if "citizen_pending_contact" not in st.session_state:
-    st.session_state.citizen_pending_contact = None
-if "citizen_otp" not in st.session_state:
-    st.session_state.citizen_otp = None
-if "citizen_otp_expires_at" not in st.session_state:
-    st.session_state.citizen_otp_expires_at = None
-if "citizen_otp_delivery_msg" not in st.session_state:
-    st.session_state.citizen_otp_delivery_msg = None
-if "citizen_otp_delivery_ok" not in st.session_state:
-    st.session_state.citizen_otp_delivery_ok = False
 
 
 # ── Data Helpers ───────────────────────────────────────────────────────────────
@@ -477,129 +460,6 @@ def is_valid_contact(value: str) -> bool:
     return bool(email_ok or mobile_ok)
 
 
-def is_email_contact(value: str) -> bool:
-    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value.strip()))
-
-
-def is_mobile_contact(value: str) -> bool:
-    return bool(re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", value.strip()))
-
-
-def normalize_mobile_contact(value: str) -> str:
-    cleaned = re.sub(r"[\s-]", "", value.strip())
-    if cleaned.startswith("+"):
-        return cleaned
-    country_code = get_app_setting("TWILIO_DEFAULT_COUNTRY_CODE", "+91") or "+91"
-    return f"{country_code}{cleaned.lstrip('0')}"
-
-
-def get_app_setting(name: str, default: str | None = None) -> str | None:
-    value = default
-    try:
-        value = st.secrets.get(name, default)
-    except Exception:
-        value = default
-    return str(value) if value is not None else None
-
-
-def send_otp_email(contact: str, otp: str) -> tuple[bool, str]:
-    smtp_host = get_app_setting("SMTP_HOST")
-    smtp_port = int(get_app_setting("SMTP_PORT", "587") or "587")
-    smtp_user = get_app_setting("SMTP_USERNAME")
-    smtp_password = get_app_setting("SMTP_PASSWORD")
-    smtp_from = get_app_setting("SMTP_FROM", smtp_user)
-    use_tls = (get_app_setting("SMTP_USE_TLS", "true") or "true").lower() != "false"
-
-    if not smtp_host or not smtp_from:
-        return False, "OTP delivery is not configured. Use the demo OTP shown below."
-
-    message = EmailMessage()
-    message["Subject"] = "Your Complaint Dashboard OTP"
-    message["From"] = smtp_from
-    message["To"] = contact
-    message.set_content(
-        f"Your OTP for Complaint Analytics Dashboard is {otp}.\n\n"
-        "This code expires in 5 minutes."
-    )
-
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-            if use_tls:
-                server.starttls()
-            if smtp_user and smtp_password:
-                server.login(smtp_user, smtp_password)
-            server.send_message(message)
-    except Exception as exc:
-        return False, f"Could not send OTP email: {exc}"
-
-    return True, f"OTP sent to {contact}"
-
-
-def send_otp_sms(contact: str, otp: str) -> tuple[bool, str]:
-    account_sid = get_app_setting("TWILIO_ACCOUNT_SID")
-    auth_token = get_app_setting("TWILIO_AUTH_TOKEN")
-    from_number = get_app_setting("TWILIO_FROM_NUMBER")
-
-    if not account_sid or not auth_token or not from_number:
-        return False, "SMS delivery is not configured. Use the demo OTP shown below."
-
-    to_number = normalize_mobile_contact(contact)
-    payload = parse.urlencode({
-        "To": to_number,
-        "From": from_number,
-        "Body": (
-            f"Your Complaint Analytics Dashboard OTP is {otp}. "
-            "It expires in 5 minutes."
-        ),
-    }).encode("utf-8")
-    auth = base64.b64encode(f"{account_sid}:{auth_token}".encode("utf-8")).decode("ascii")
-    sms_request = request.Request(
-        f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
-        data=payload,
-        headers={
-            "Authorization": f"Basic {auth}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        method="POST",
-    )
-
-    try:
-        with request.urlopen(sms_request, timeout=10) as response:
-            if response.status >= 400:
-                return False, "Could not send SMS OTP. Use the demo OTP shown below."
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8", errors="ignore")
-        return False, f"Could not send SMS OTP: {details or exc.reason}"
-    except Exception as exc:
-        return False, f"Could not send SMS OTP: {exc}"
-
-    return True, f"OTP sent by SMS to {to_number}"
-
-
-def start_citizen_otp(contact: str) -> None:
-    otp = f"{secrets.randbelow(1_000_000):06d}"
-    st.session_state.citizen_pending_contact = contact
-    st.session_state.citizen_otp = otp
-    st.session_state.citizen_otp_expires_at = datetime.now() + timedelta(minutes=5)
-    if is_email_contact(contact):
-        delivered, message = send_otp_email(contact, otp)
-    elif is_mobile_contact(contact):
-        delivered, message = send_otp_sms(contact, otp)
-    else:
-        delivered = False
-        message = "SMS delivery is not configured. Use the demo OTP shown below."
-    st.session_state.citizen_otp_delivery_ok = delivered
-    st.session_state.citizen_otp_delivery_msg = message
-
-
-def reset_citizen_otp() -> None:
-    st.session_state.citizen_pending_contact = None
-    st.session_state.citizen_otp = None
-    st.session_state.citizen_otp_expires_at = None
-    st.session_state.citizen_otp_delivery_msg = None
-    st.session_state.citizen_otp_delivery_ok = False
-
-
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     if uploaded_file is None:
         return None
@@ -632,56 +492,55 @@ with st.sidebar:
     sel_category = st.selectbox("Category", ["All", *categories])
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
-    if not st.session_state.citizen_contact:
-        st.markdown("---")
-        st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
 
-        if st.session_state.is_admin:
-            st.success("Admin mode active")
-            if st.button("Logout", use_container_width=True):
-                st.session_state.is_admin    = False
+    if st.session_state.is_admin:
+        st.success("Admin mode active")
+        if st.button("Logout", use_container_width=True):
+            st.session_state.is_admin    = False
+            st.session_state.login_step  = 0
+            st.session_state.drawer_open = False
+            st.rerun()
+
+    elif st.session_state.login_step == 1:
+        st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
+        uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
+        next_clicked = st.button("Next", use_container_width=True)
+
+        if next_clicked:
+            if uid.strip() == ADMIN_USERNAME:
+                st.session_state.login_uid_input = uid.strip()
+                st.session_state.login_step = 2
+                st.rerun()
+            else:
+                st.error("Username not found")
+
+        if st.button("Cancel", use_container_width=True):
+            st.session_state.login_step = 0
+            st.rerun()
+
+    elif st.session_state.login_step == 2:
+        st.markdown(f"""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg><span>Hi, {st.session_state.login_uid_input}</span></div>""", unsafe_allow_html=True)
+        pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
+        login_clicked = st.button("Login", use_container_width=True)
+
+        if login_clicked:
+            if pwd == ADMIN_PASSWORD:
+                st.session_state.is_admin    = True
                 st.session_state.login_step  = 0
-                st.session_state.drawer_open = False
+                st.session_state.drawer_open = True
                 st.rerun()
+            else:
+                st.error("Incorrect password")
 
-        elif st.session_state.login_step == 1:
-            st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
-            uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
-            next_clicked = st.button("Next", use_container_width=True)
-
-            if next_clicked:
-                if uid.strip() == ADMIN_USERNAME:
-                    st.session_state.login_uid_input = uid.strip()
-                    st.session_state.login_step = 2
-                    st.rerun()
-                else:
-                    st.error("Username not found")
-
-            if st.button("Cancel", use_container_width=True):
-                st.session_state.login_step = 0
-                st.rerun()
-
-        elif st.session_state.login_step == 2:
-            st.markdown(f"""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg><span>Hi, {st.session_state.login_uid_input}</span></div>""", unsafe_allow_html=True)
-            pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
-            login_clicked = st.button("Login", use_container_width=True)
-
-            if login_clicked:
-                if pwd == ADMIN_PASSWORD:
-                    st.session_state.is_admin    = True
-                    st.session_state.login_step  = 0
-                    st.session_state.drawer_open = True
-                    st.rerun()
-                else:
-                    st.error("Incorrect password")
-
-            if st.button("Back", use_container_width=True):
-                st.session_state.login_step = 1
-                st.rerun()
-        else:
-            if st.button("Login", use_container_width=True):
-                st.session_state.login_step = 1
-                st.rerun()
+        if st.button("Back", use_container_width=True):
+            st.session_state.login_step = 1
+            st.rerun()
+    else:
+        if st.button("Login", use_container_width=True):
+            st.session_state.login_step = 1
+            st.rerun()
 af = {
     "start_date": start_date,
     "end_date": end_date,
@@ -1020,132 +879,83 @@ with main_col:
 
         st.subheader("Raise New Complaint")
 
-        if not st.session_state.citizen_contact:
-            if st.session_state.citizen_pending_contact:
-                pending_contact = st.session_state.citizen_pending_contact
-                expires_at = st.session_state.citizen_otp_expires_at
-                delivery_msg = st.session_state.citizen_otp_delivery_msg
-                if st.session_state.citizen_otp_delivery_ok:
-                    st.success(delivery_msg or f"OTP sent to {pending_contact}")
+        if "form_key_f" not in st.session_state:
+            st.session_state.form_key_f = 0
+        if not st.session_state.new_complaint_id:
+            st.session_state.new_complaint_id = get_next_complaint_id()
+
+        with st.form("new_complaint", clear_on_submit=False):
+            c1, c2, c3 = st.columns(3)
+            new_id       = c1.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
+            new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
+            new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
+            custom_area = c2.text_input("New area (optional)", placeholder="Use when area is not listed", key=f"custom_area_f_{st.session_state.form_key_f}")
+            custom_category = c3.text_input("New category (optional)", placeholder="Use when category is not listed", key=f"custom_category_f_{st.session_state.form_key_f}")
+            user_contact = st.text_input(
+                "Mobile number or email (optional)",
+                placeholder="Add contact details for follow-up",
+                key=f"user_contact_f_{st.session_state.form_key_f}",
+            )
+            new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
+            priority_choice = st.selectbox(
+                "Priority",
+                ["Auto detect", "Low", "Medium", "High"],
+                key=f"new_priority_f_{st.session_state.form_key_f}",
+            )
+            image_file = st.file_uploader(
+                "Attach image (optional)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key=f"new_image_f_{st.session_state.form_key_f}",
+            )
+            new_desc = st.text_area(
+                "Description",
+                placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
+                key=f"new_desc_f_{st.session_state.form_key_f}",
+            )
+
+            if st.form_submit_button("Submit"):
+                final_area = custom_area.strip() or new_area
+                final_category = custom_category.strip() or new_category
+                final_contact = user_contact.strip()
+                final_desc = new_desc.strip()
+                final_priority = (
+                    infer_priority(final_desc, final_category)
+                    if priority_choice == "Auto detect"
+                    else priority_choice
+                )
+                if len(final_area) < 2:
+                    st.error("Area must be at least 2 characters")
+                elif len(final_category) < 2:
+                    st.error("Category must be at least 2 characters")
+                elif final_contact and not is_valid_contact(final_contact):
+                    st.error("Enter a valid email ID or mobile number")
+                elif len(final_desc) < 10:
+                    st.error("Description too short")
                 else:
-                    st.warning(delivery_msg or "OTP delivery is not configured.")
-                    st.caption(f"Demo OTP: {st.session_state.citizen_otp}")
-
-                with st.form("citizen_otp_verify", clear_on_submit=False):
-                    otp_input = st.text_input(
-                        "OTP",
-                        placeholder="Enter 6-digit OTP",
-                        max_chars=6,
-                        key="citizen_otp_input",
-                    )
-                    if st.form_submit_button("Verify OTP", use_container_width=True):
-                        if expires_at and datetime.now() > expires_at:
-                            st.error("OTP expired. Please resend a new code.")
-                        elif otp_input.strip() == st.session_state.citizen_otp:
-                            st.session_state.citizen_contact = pending_contact
-                            reset_citizen_otp()
-                            st.rerun()
-                        else:
-                            st.error("Incorrect OTP")
-
-                resend_col, change_col = st.columns(2)
-                if resend_col.button("Resend OTP", use_container_width=True):
-                    start_citizen_otp(pending_contact)
-                    st.rerun()
-                if change_col.button("Change Contact", use_container_width=True):
-                    reset_citizen_otp()
-                    st.rerun()
-            else:
-                with st.form("citizen_login", clear_on_submit=False):
-                    contact_input = st.text_input(
-                        "Mobile number or email",
-                        placeholder="Enter mobile number or email ID",
-                        key="citizen_contact_input",
-                    )
-                    if st.form_submit_button("Send OTP", use_container_width=True):
-                        contact_value = contact_input.strip()
-                        if not is_valid_contact(contact_value):
-                            st.error("Enter a valid email ID or mobile number")
-                        else:
-                            start_citizen_otp(contact_value)
-                            st.rerun()
-        else:
-            login_col, action_col = st.columns([3, 1])
-            login_col.info(f"Submitting as {st.session_state.citizen_contact}")
-            if action_col.button("Change Login", use_container_width=True):
-                st.session_state.citizen_contact = None
-                reset_citizen_otp()
-                st.rerun()
-
-            if "form_key_f" not in st.session_state:
-                st.session_state.form_key_f = 0
-            if not st.session_state.new_complaint_id:
-                st.session_state.new_complaint_id = get_next_complaint_id()
-
-            with st.form("new_complaint", clear_on_submit=False):
-                c1, c2, c3 = st.columns(3)
-                new_id       = c1.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
-                new_area     = c2.selectbox("Area", areas, key=f"new_area_f_{st.session_state.form_key_f}")
-                new_category = c3.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
-                custom_area = c2.text_input("New area (optional)", placeholder="Use when area is not listed", key=f"custom_area_f_{st.session_state.form_key_f}")
-                custom_category = c3.text_input("New category (optional)", placeholder="Use when category is not listed", key=f"custom_category_f_{st.session_state.form_key_f}")
-                new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
-                priority_choice = st.selectbox(
-                    "Priority",
-                    ["Auto detect", "Low", "Medium", "High"],
-                    key=f"new_priority_f_{st.session_state.form_key_f}",
-                )
-                image_file = st.file_uploader(
-                    "Attach image (optional)",
-                    type=["jpg", "jpeg", "png", "webp"],
-                    key=f"new_image_f_{st.session_state.form_key_f}",
-                )
-                new_desc = st.text_area(
-                    "Description",
-                    placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
-                    key=f"new_desc_f_{st.session_state.form_key_f}",
-                )
-
-                if st.form_submit_button("Submit"):
-                    final_area = custom_area.strip() or new_area
-                    final_category = custom_category.strip() or new_category
-                    final_desc = new_desc.strip()
-                    final_priority = (
-                        infer_priority(final_desc, final_category)
-                        if priority_choice == "Auto detect"
-                        else priority_choice
-                    )
-                    if len(final_area) < 2:
-                        st.error("Area must be at least 2 characters")
-                    elif len(final_category) < 2:
-                        st.error("Category must be at least 2 characters")
-                    elif len(final_desc) < 10:
-                        st.error("Description too short")
-                    else:
-                        try:
-                            image_path = save_uploaded_image(image_file, new_id.strip())
-                            created = insert_complaint({
-                                "id": new_id.strip(),
-                                "created_date": new_date.isoformat(),
-                                "closed_date": None,
-                                "area": final_area,
-                                "category": final_category,
-                                "priority": final_priority,
-                                "status": "Pending",
-                                "description": final_desc,
-                                "user_contact": st.session_state.citizen_contact,
-                                "image_path": image_path,
-                            })
-                            st.session_state.submit_msg = f"Complaint {new_id} registered"
-                            st.session_state.last_complaint_receipt = created
-                            st.session_state.form_key_f += 1
-                            st.session_state.new_complaint_id = get_next_complaint_id()
-                            _refresh()
-                            st.rerun()
-                        except DuplicateComplaintError:
-                            st.error("Complaint ID already exists")
-                        except Exception as e:
-                            st.error(f"Failed to save complaint: {e}")
+                    try:
+                        image_path = save_uploaded_image(image_file, new_id.strip())
+                        created = insert_complaint({
+                            "id": new_id.strip(),
+                            "created_date": new_date.isoformat(),
+                            "closed_date": None,
+                            "area": final_area,
+                            "category": final_category,
+                            "priority": final_priority,
+                            "status": "Pending",
+                            "description": final_desc,
+                            "user_contact": final_contact or None,
+                            "image_path": image_path,
+                        })
+                        st.session_state.submit_msg = f"Complaint {new_id} registered"
+                        st.session_state.last_complaint_receipt = created
+                        st.session_state.form_key_f += 1
+                        st.session_state.new_complaint_id = get_next_complaint_id()
+                        _refresh()
+                        st.rerun()
+                    except DuplicateComplaintError:
+                        st.error("Complaint ID already exists")
+                    except Exception as e:
+                        st.error(f"Failed to save complaint: {e}")
 
 # ── Admin Panel (below dashboard when logged in) ───────────────────────────────
 if st.session_state.is_admin:
