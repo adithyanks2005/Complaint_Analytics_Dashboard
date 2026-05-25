@@ -35,7 +35,19 @@ SMTP_FROM = "your-email@gmail.com"
 SMTP_USE_TLS = "true"
 ```
 
-If SMTP is not configured, the app runs in demo mode and shows the OTP on screen. Mobile/SMS OTP delivery needs an SMS provider integration.
+If SMTP is not configured, the app runs in demo mode and shows the OTP on screen.
+
+### SMS OTP delivery
+Mobile OTPs are sent with Twilio when these Streamlit secrets are configured:
+
+```toml
+TWILIO_ACCOUNT_SID = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+TWILIO_AUTH_TOKEN = "your-twilio-auth-token"
+TWILIO_FROM_NUMBER = "+1234567890"
+TWILIO_DEFAULT_COUNTRY_CODE = "+91"
+```
+
+Mobile numbers entered without a country code use `TWILIO_DEFAULT_COUNTRY_CODE`. If Twilio is not configured or the SMS API rejects the number, the app shows the demo OTP on screen.
 
 ---
 Feel free to open issues or submit pull requests for enhancements!

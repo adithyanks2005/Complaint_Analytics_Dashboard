@@ -4,6 +4,7 @@ Uses Supabase when configured, with SQLite as the local fallback
 """
 from __future__ import annotations
 
+import base64
 import sys
 import re
 import secrets
@@ -12,6 +13,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
+from urllib import error, parse, request
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -479,6 +481,18 @@ def is_email_contact(value: str) -> bool:
     return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value.strip()))
 
 
+def is_mobile_contact(value: str) -> bool:
+    return bool(re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", value.strip()))
+
+
+def normalize_mobile_contact(value: str) -> str:
+    cleaned = re.sub(r"[\s-]", "", value.strip())
+    if cleaned.startswith("+"):
+        return cleaned
+    country_code = get_app_setting("TWILIO_DEFAULT_COUNTRY_CODE", "+91") or "+91"
+    return f"{country_code}{cleaned.lstrip('0')}"
+
+
 def get_app_setting(name: str, default: str | None = None) -> str | None:
     value = default
     try:
@@ -521,6 +535,47 @@ def send_otp_email(contact: str, otp: str) -> tuple[bool, str]:
     return True, f"OTP sent to {contact}"
 
 
+def send_otp_sms(contact: str, otp: str) -> tuple[bool, str]:
+    account_sid = get_app_setting("TWILIO_ACCOUNT_SID")
+    auth_token = get_app_setting("TWILIO_AUTH_TOKEN")
+    from_number = get_app_setting("TWILIO_FROM_NUMBER")
+
+    if not account_sid or not auth_token or not from_number:
+        return False, "SMS delivery is not configured. Use the demo OTP shown below."
+
+    to_number = normalize_mobile_contact(contact)
+    payload = parse.urlencode({
+        "To": to_number,
+        "From": from_number,
+        "Body": (
+            f"Your Complaint Analytics Dashboard OTP is {otp}. "
+            "It expires in 5 minutes."
+        ),
+    }).encode("utf-8")
+    auth = base64.b64encode(f"{account_sid}:{auth_token}".encode("utf-8")).decode("ascii")
+    sms_request = request.Request(
+        f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
+        data=payload,
+        headers={
+            "Authorization": f"Basic {auth}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(sms_request, timeout=10) as response:
+            if response.status >= 400:
+                return False, "Could not send SMS OTP. Use the demo OTP shown below."
+    except error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="ignore")
+        return False, f"Could not send SMS OTP: {details or exc.reason}"
+    except Exception as exc:
+        return False, f"Could not send SMS OTP: {exc}"
+
+    return True, f"OTP sent by SMS to {to_number}"
+
+
 def start_citizen_otp(contact: str) -> None:
     otp = f"{secrets.randbelow(1_000_000):06d}"
     st.session_state.citizen_pending_contact = contact
@@ -528,6 +583,8 @@ def start_citizen_otp(contact: str) -> None:
     st.session_state.citizen_otp_expires_at = datetime.now() + timedelta(minutes=5)
     if is_email_contact(contact):
         delivered, message = send_otp_email(contact, otp)
+    elif is_mobile_contact(contact):
+        delivered, message = send_otp_sms(contact, otp)
     else:
         delivered = False
         message = "SMS delivery is not configured. Use the demo OTP shown below."
@@ -575,55 +632,56 @@ with st.sidebar:
     sel_category = st.selectbox("Category", ["All", *categories])
     sel_status   = st.selectbox("Status",   ["All", *statuses])
 
-    st.markdown("---")
-    st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
+    if not st.session_state.citizen_contact:
+        st.markdown("---")
+        st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
 
-    if st.session_state.is_admin:
-        st.success("Admin mode active")
-        if st.button("Logout", use_container_width=True):
-            st.session_state.is_admin    = False
-            st.session_state.login_step  = 0
-            st.session_state.drawer_open = False
-            st.rerun()
-
-    elif st.session_state.login_step == 1:
-        st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
-        uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
-        next_clicked = st.button("Next", use_container_width=True)
-
-        if next_clicked:
-            if uid.strip() == ADMIN_USERNAME:
-                st.session_state.login_uid_input = uid.strip()
-                st.session_state.login_step = 2
-                st.rerun()
-            else:
-                st.error("Username not found")
-
-        if st.button("Cancel", use_container_width=True):
-            st.session_state.login_step = 0
-            st.rerun()
-
-    elif st.session_state.login_step == 2:
-        st.markdown(f"""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg><span>Hi, {st.session_state.login_uid_input}</span></div>""", unsafe_allow_html=True)
-        pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
-        login_clicked = st.button("Login", use_container_width=True)
-
-        if login_clicked:
-            if pwd == ADMIN_PASSWORD:
-                st.session_state.is_admin    = True
+        if st.session_state.is_admin:
+            st.success("Admin mode active")
+            if st.button("Logout", use_container_width=True):
+                st.session_state.is_admin    = False
                 st.session_state.login_step  = 0
-                st.session_state.drawer_open = True
+                st.session_state.drawer_open = False
                 st.rerun()
-            else:
-                st.error("Incorrect password")
 
-        if st.button("Back", use_container_width=True):
-            st.session_state.login_step = 1
-            st.rerun()
-    else:
-        if st.button("Login", use_container_width=True):
-            st.session_state.login_step = 1
-            st.rerun()
+        elif st.session_state.login_step == 1:
+            st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
+            uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
+            next_clicked = st.button("Next", use_container_width=True)
+
+            if next_clicked:
+                if uid.strip() == ADMIN_USERNAME:
+                    st.session_state.login_uid_input = uid.strip()
+                    st.session_state.login_step = 2
+                    st.rerun()
+                else:
+                    st.error("Username not found")
+
+            if st.button("Cancel", use_container_width=True):
+                st.session_state.login_step = 0
+                st.rerun()
+
+        elif st.session_state.login_step == 2:
+            st.markdown(f"""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg><span>Hi, {st.session_state.login_uid_input}</span></div>""", unsafe_allow_html=True)
+            pwd = st.text_input("Password", type="password", placeholder="Enter Password", key="pwd_field", label_visibility="collapsed")
+            login_clicked = st.button("Login", use_container_width=True)
+
+            if login_clicked:
+                if pwd == ADMIN_PASSWORD:
+                    st.session_state.is_admin    = True
+                    st.session_state.login_step  = 0
+                    st.session_state.drawer_open = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect password")
+
+            if st.button("Back", use_container_width=True):
+                st.session_state.login_step = 1
+                st.rerun()
+        else:
+            if st.button("Login", use_container_width=True):
+                st.session_state.login_step = 1
+                st.rerun()
 af = {
     "start_date": start_date,
     "end_date": end_date,
