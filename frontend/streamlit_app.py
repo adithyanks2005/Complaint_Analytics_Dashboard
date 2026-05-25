@@ -7,8 +7,10 @@ from __future__ import annotations
 import sys
 import re
 import secrets
+import smtplib
 import uuid
 from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 from pathlib import Path
 
 import pandas as pd
@@ -395,6 +397,10 @@ if "citizen_otp" not in st.session_state:
     st.session_state.citizen_otp = None
 if "citizen_otp_expires_at" not in st.session_state:
     st.session_state.citizen_otp_expires_at = None
+if "citizen_otp_delivery_msg" not in st.session_state:
+    st.session_state.citizen_otp_delivery_msg = None
+if "citizen_otp_delivery_ok" not in st.session_state:
+    st.session_state.citizen_otp_delivery_ok = False
 
 
 # ── Data Helpers ───────────────────────────────────────────────────────────────
@@ -469,16 +475,72 @@ def is_valid_contact(value: str) -> bool:
     return bool(email_ok or mobile_ok)
 
 
+def is_email_contact(value: str) -> bool:
+    return bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value.strip()))
+
+
+def get_app_setting(name: str, default: str | None = None) -> str | None:
+    value = default
+    try:
+        value = st.secrets.get(name, default)
+    except Exception:
+        value = default
+    return str(value) if value is not None else None
+
+
+def send_otp_email(contact: str, otp: str) -> tuple[bool, str]:
+    smtp_host = get_app_setting("SMTP_HOST")
+    smtp_port = int(get_app_setting("SMTP_PORT", "587") or "587")
+    smtp_user = get_app_setting("SMTP_USERNAME")
+    smtp_password = get_app_setting("SMTP_PASSWORD")
+    smtp_from = get_app_setting("SMTP_FROM", smtp_user)
+    use_tls = (get_app_setting("SMTP_USE_TLS", "true") or "true").lower() != "false"
+
+    if not smtp_host or not smtp_from:
+        return False, "OTP delivery is not configured. Use the demo OTP shown below."
+
+    message = EmailMessage()
+    message["Subject"] = "Your Complaint Dashboard OTP"
+    message["From"] = smtp_from
+    message["To"] = contact
+    message.set_content(
+        f"Your OTP for Complaint Analytics Dashboard is {otp}.\n\n"
+        "This code expires in 5 minutes."
+    )
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            if use_tls:
+                server.starttls()
+            if smtp_user and smtp_password:
+                server.login(smtp_user, smtp_password)
+            server.send_message(message)
+    except Exception as exc:
+        return False, f"Could not send OTP email: {exc}"
+
+    return True, f"OTP sent to {contact}"
+
+
 def start_citizen_otp(contact: str) -> None:
+    otp = f"{secrets.randbelow(1_000_000):06d}"
     st.session_state.citizen_pending_contact = contact
-    st.session_state.citizen_otp = f"{secrets.randbelow(1_000_000):06d}"
+    st.session_state.citizen_otp = otp
     st.session_state.citizen_otp_expires_at = datetime.now() + timedelta(minutes=5)
+    if is_email_contact(contact):
+        delivered, message = send_otp_email(contact, otp)
+    else:
+        delivered = False
+        message = "SMS delivery is not configured. Use the demo OTP shown below."
+    st.session_state.citizen_otp_delivery_ok = delivered
+    st.session_state.citizen_otp_delivery_msg = message
 
 
 def reset_citizen_otp() -> None:
     st.session_state.citizen_pending_contact = None
     st.session_state.citizen_otp = None
     st.session_state.citizen_otp_expires_at = None
+    st.session_state.citizen_otp_delivery_msg = None
+    st.session_state.citizen_otp_delivery_ok = False
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -904,8 +966,12 @@ with main_col:
             if st.session_state.citizen_pending_contact:
                 pending_contact = st.session_state.citizen_pending_contact
                 expires_at = st.session_state.citizen_otp_expires_at
-                st.info(f"OTP sent to {pending_contact}")
-                st.caption(f"Demo OTP: {st.session_state.citizen_otp}")
+                delivery_msg = st.session_state.citizen_otp_delivery_msg
+                if st.session_state.citizen_otp_delivery_ok:
+                    st.success(delivery_msg or f"OTP sent to {pending_contact}")
+                else:
+                    st.warning(delivery_msg or "OTP delivery is not configured.")
+                    st.caption(f"Demo OTP: {st.session_state.citizen_otp}")
 
                 with st.form("citizen_otp_verify", clear_on_submit=False):
                     otp_input = st.text_input(

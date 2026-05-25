@@ -23,5 +23,19 @@ streamlit run streamlit_app.py
 - Place any secret keys (e.g. Supabase URL / Service key) in a `secrets.toml` file under the `.streamlit` folder, or add them via the **Secrets** tab on the Streamlit Cloud dashboard.
 - The file `.streamlit/config.toml` already contains the minimal server configuration for the cloud.
 
+### Email OTP delivery
+Citizen login can send OTPs to email when SMTP settings are configured in Streamlit secrets:
+
+```toml
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = "587"
+SMTP_USERNAME = "your-email@gmail.com"
+SMTP_PASSWORD = "your-app-password"
+SMTP_FROM = "your-email@gmail.com"
+SMTP_USE_TLS = "true"
+```
+
+If SMTP is not configured, the app runs in demo mode and shows the OTP on screen. Mobile/SMS OTP delivery needs an SMS provider integration.
+
 ---
 Feel free to open issues or submit pull requests for enhancements!
