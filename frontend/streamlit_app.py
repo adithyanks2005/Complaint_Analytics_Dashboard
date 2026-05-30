@@ -1186,8 +1186,8 @@ with st.sidebar:
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
     st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><circle cx="12" cy="4" r="2"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><circle cx="10" cy="12" r="2"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><circle cx="14" cy="20" r="2"/></svg><span>Filters</span></div>""", unsafe_allow_html=True)
-    start_date = st.date_input("Start Date", value=date(2025, 1, 1))
-    end_date   = st.date_input("End Date",   value=date.today())
+    start_date = st.date_input("Start Date", value=date(2025, 1, 1), format="DD/MM/YYYY")
+    end_date   = st.date_input("End Date",   value=date.today(), format="DD/MM/YYYY")
 
     if start_date > end_date:
         st.warning("Start date is after end date")
@@ -1715,7 +1715,7 @@ with main_col:
                 placeholder="Add contact details for follow-up",
                 key=f"user_contact_f_{st.session_state.form_key_f}",
             )
-            new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}")
+            new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}", format="DD/MM/YYYY")
             priority_choice = st.selectbox(
                 "Priority",
                 ["Auto detect", "Low", "Medium", "High"],
@@ -1830,7 +1830,7 @@ if st.session_state.is_admin:
                 loc4, loc5 = st.columns(2)
                 upd_village = loc4.text_input("Village", value=str(row.get("village") or ""), key="adm_village")
                 upd_pincode = loc5.text_input("Pincode", value=str(row.get("pincode") or ""), max_chars=6, key="adm_pincode")
-                upd_closed   = st.date_input("Closed Date", value=date.today(), key="adm_closed") if upd_status == "Closed" else None
+                upd_closed   = st.date_input("Closed Date", value=date.today(), key="adm_closed", format="DD/MM/YYYY") if upd_status == "Closed" else None
                 upd_desc     = st.text_area("Description", value=str(row["description"]) if pd.notna(row["description"]) else "", key="adm_desc")
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):
                     closed_val = upd_closed.isoformat() if upd_closed else None
