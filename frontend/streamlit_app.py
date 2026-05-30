@@ -1696,7 +1696,7 @@ with main_col:
                 "Upload image file (JPG, PNG, or WebP)",
                 type=["jpg", "jpeg", "png", "webp"],
                 key=f"new_image_f_{st.session_state.form_key_f}",
-                help="Select an image file to attach to your complaint"
+                help="Select an image file to attach to your complaint",
             )
             if uploaded_file:
                 col1, col2 = st.columns([2, 1])
@@ -1704,7 +1704,6 @@ with main_col:
                 col2.success(f"File: {uploaded_file.name}")
 
         with st.form("new_complaint", clear_on_submit=False):
-            new_desc = "No description provided"
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
@@ -1712,10 +1711,11 @@ with main_col:
                 key=f"user_contact_f_{st.session_state.form_key_f}",
             )
             new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}", format="DD/MM/YYYY")
-            priority_choice = st.selectbox(
-                "Priority",
-                ["Auto detect", "Low", "Medium", "High"],
-                key=f"new_priority_f_{st.session_state.form_key_f}",
+            
+            new_desc = st.text_area(
+                "Description",
+                placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
+                key=f"new_desc_f_{st.session_state.form_key_f}",
             )
 
             if st.form_submit_button("Submit"):
@@ -1740,11 +1740,7 @@ with main_col:
                 final_pincode = selected_location["pincode"]
                 image_file = camera_file or uploaded_file
                 final_desc = new_desc.strip()
-                final_priority = (
-                    infer_priority(final_desc, final_category)
-                    if priority_choice == "Auto detect"
-                    else priority_choice
-                )
+                final_priority = infer_priority(final_desc, final_category)
                 if len(final_area) < 2:
                     st.error("Area must be at least 2 characters")
                 elif len(final_category) < 2:
@@ -1757,6 +1753,8 @@ with main_col:
                     st.error("Please attach an image (take a photo or upload a file) before submitting")
                 elif image_mode == "Take photo" and not photo_verified:
                     st.error("Verify the photo before uploading it")
+                elif len(final_desc) < 10:
+                    st.error("Description too short")
                 else:
                     try:
                         image_path = save_uploaded_image(image_file, new_id.strip())
