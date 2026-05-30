@@ -1830,6 +1830,8 @@ with main_col:
 
             if st.form_submit_button("Submit Complaint"):
                 handle_complaint_submission()
+                # Show confirmation to the user
+                st.success("✅ Your complaint has been recorded. We will notify you via the provided contact method.")
             
             
 
