@@ -1810,6 +1810,9 @@ with main_col:
                 col2.success(f"File: {uploaded_file.name}")
                 if st.button("Verify", key="verify_btn"):
                     st.success("Details verified!")
+                    image_verified = True
+                else:
+                    image_verified = False
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
