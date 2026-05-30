@@ -262,6 +262,41 @@ PINCODE_DATABASE = {
 }
 
 
+# Map of common API spelling variations to exact selectbox drop-down spelling options in the frontend
+STATE_MAPPING = {
+    "delhi": "Delhi",
+    "pondicherry": "Puducherry",
+    "orissa": "Odisha",
+    "tamilnadu": "Tamil Nadu",
+    "tamil nadu": "Tamil Nadu",
+}
+
+DISTRICT_MAPPING = {
+    "kanyakumari": "Kanniyakumari",
+    "bangalore": "Bengaluru Urban",
+    "bangalore urban": "Bengaluru Urban",
+    "bangalore rural": "Bengaluru Rural",
+    "bengaluru": "Bengaluru Urban",
+    "bengaluru urban": "Bengaluru Urban",
+    "bengaluru rural": "Bengaluru Rural",
+    "delhi": "Central Delhi",
+    "new delhi": "New Delhi",
+    "mumbai": "Mumbai",
+    "mumbai city": "Mumbai",
+    "mumbai suburban": "Mumbai Suburban",
+    "pune": "Pune",
+    "chennai": "Chennai",
+    "kolkata": "Kolkata",
+    "hyderabad": "Hyderabad",
+    "pondicherry": "Puducherry",
+    "ahmedabad": "Ahmedabad",
+    "indore": "Indore",
+    "jaipur": "Jaipur",
+    "lucknow": "Lucknow",
+    "surat": "Surat",
+    "guwahati": "Kamrup Metro",
+}
+
 def get_location_from_pincode(pincode: str) -> dict | None:
     """
     Retrieve location details for a given pincode.
@@ -298,15 +333,22 @@ def get_location_from_pincode(pincode: str) -> dict | None:
                 post_offices = data[0].get("PostOffice", [])
                 if post_offices:
                     po = post_offices[0]
-                    state = po.get("State", "")
-                    district = po.get("District", "")
-                    village = po.get("Name", "")
+                    state = po.get("State", "").strip()
+                    district = po.get("District", "").strip()
+                    village = po.get("Name", "").strip()
                     # Use Division or District as Municipality fallback
-                    municipality = po.get("Division", district)
+                    municipality = po.get("Division", district).strip()
+                    
+                    # Normalize state and district names to match standard options exactly
+                    state_clean = state.lower()
+                    state_normalized = STATE_MAPPING.get(state_clean, state)
+                    
+                    district_clean = district.lower()
+                    district_normalized = DISTRICT_MAPPING.get(district_clean, district)
                     
                     return {
-                        "state": state,
-                        "district": district,
+                        "state": state_normalized,
+                        "district": district_normalized,
                         "municipality": municipality,
                         "village": village
                     }
