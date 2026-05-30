@@ -1200,6 +1200,14 @@ def build_combined_location_options(df: pd.DataFrame, area_options: list[str]) -
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('## Analytics Dashboard')
+    # Dark mode toggle
+    if "dark_mode" not in st.session_state:
+        st.session_state.dark_mode = True
+    dark = st.checkbox("🌙 Dark mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
+    st.session_state.dark_mode = dark
+    mode_bg = "#0f111a" if dark else "#ffffff"
+    mode_text = "#e2e8f0" if dark else "#111827"
+    st.markdown(f"<style>body {{ background-color: {mode_bg}; color: {mode_text}; }}</style>", unsafe_allow_html=True)
     st.markdown("---")
 
     all_df = load_all()
