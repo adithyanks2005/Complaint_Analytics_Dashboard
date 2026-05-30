@@ -1808,9 +1808,7 @@ with main_col:
             # Add external submit button after image handling
             if st.button("Submit", key="external_submit_btn"):
                 handle_complaint_submission()
-                col1, col2 = st.columns([2, 1])
-                col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
-                col2.success(f"File: {uploaded_file.name}")
+                # Image preview already shown above; no extra display needed
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
@@ -1827,8 +1825,7 @@ with main_col:
                 key=f"new_desc_f_{st.session_state.form_key_f}",
             )
 
-            if st.form_submit_button("Submit Complaint"):
-                handle_complaint_submission()
+            # Form submission handled by the external Submit button below
             
             # Removed handling for external submit click; form submit handles submission
             
