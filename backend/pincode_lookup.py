@@ -190,6 +190,7 @@ PINCODE_DATABASE = {
     "600010": {"state": "Tamil Nadu", "district": "Chennai", "municipality": "Chennai", "village": "Nandanam"},
     "600011": {"state": "Tamil Nadu", "district": "Chennai", "municipality": "Chennai", "village": "Shastri Nagar"},
     "600012": {"state": "Tamil Nadu", "district": "Chennai", "municipality": "Chennai", "village": "Shastri Nagar"},
+    "600127": {"state": "Tamil Nadu", "district": "Chennai", "municipality": "Chennai", "village": "Tambaram"},
 
     # Kolkata / West Bengal
     "700001": {"state": "West Bengal", "district": "Kolkata", "municipality": "Kolkata", "village": "Koley Market"},

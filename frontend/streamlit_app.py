@@ -1682,12 +1682,6 @@ with main_col:
                 ["Auto detect", "Low", "Medium", "High"],
                 key=f"new_priority_f_{st.session_state.form_key_f}",
             )
-            image_mode = st.radio(
-                "Image",
-                ["No image", "Take photo", "Upload file"],
-                horizontal=True,
-                key=f"image_mode_f_{st.session_state.form_key_f}",
-            )
             camera_file = None
             uploaded_file = None
             photo_verified = False
