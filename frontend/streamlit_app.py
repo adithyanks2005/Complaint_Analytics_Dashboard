@@ -1680,8 +1680,8 @@ with main_col:
                 except Exception as e:
                     st.error(f"Failed to save complaint: {e}")
 
-        if st.button("Submit Complaint", key="submit_btn_after_image"):
-            st.session_state.submit_clicked = True
+        # Removed external submit button to avoid duplicate submissions
+        
         if st.session_state.submit_msg:
             st.success(st.session_state.submit_msg)
             st.session_state.submit_msg = None
@@ -1772,6 +1772,9 @@ with main_col:
             horizontal=True,
             key=f"image_mode_f_{st.session_state.form_key_f}",
         )
+        # Additional button to directly trigger photo capture
+        if st.button("Take Photo", key="take_photo_btn"):
+            image_mode = "Take photo"
         
         if image_mode == "Take photo":
             try:
@@ -1820,12 +1823,12 @@ with main_col:
                 key=f"new_desc_f_{st.session_state.form_key_f}",
             )
 
-            if st.form_submit_button("Submit"):
+            if st.form_submit_button("Submit Complaint"):
                 handle_complaint_submission()
             
-            if st.session_state.get('submit_clicked'):
-                handle_complaint_submission()
-                st.session_state.submit_clicked = False
+            # Removed handling for external submit click; form submit handles submission
+            
+            
 
 # ── Admin Panel (below dashboard when logged in) ───────────────────────────────
 if st.session_state.is_admin:
