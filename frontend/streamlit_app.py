@@ -1805,10 +1805,10 @@ with main_col:
                 col1, col2 = st.columns([2, 1])
                 col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
                 col2.success(f"File: {uploaded_file.name}")
-            # Add external submit button after image handling
-            if st.button("Submit", key="external_submit_btn"):
-                handle_complaint_submission()
-                # Image preview already shown above; no extra display needed
+                if st.button("Verify", key="verify_btn"):
+                    st.success("Details verified!")
+                if st.button("Submit", key="external_submit_btn"):
+                    handle_complaint_submission()
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
