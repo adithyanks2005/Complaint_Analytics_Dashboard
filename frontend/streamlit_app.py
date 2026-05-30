@@ -1807,8 +1807,6 @@ with main_col:
                 col2.success(f"File: {uploaded_file.name}")
                 if st.button("Verify", key="verify_btn"):
                     st.success("Details verified!")
-                if st.button("Submit", key="external_submit_btn"):
-                    handle_complaint_submission()
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
@@ -1825,9 +1823,8 @@ with main_col:
                 key=f"new_desc_f_{st.session_state.form_key_f}",
             )
 
-            # Form submission handled by the external Submit button below
-            
-            # Removed handling for external submit click; form submit handles submission
+            if st.form_submit_button("Submit Complaint"):
+                handle_complaint_submission()
             
             
 
