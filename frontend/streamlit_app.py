@@ -1738,6 +1738,9 @@ with main_col:
         if new_pincode and is_valid_pincode(new_pincode):
             auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
             if auto_fill_result:
+                st.session_state[f"new_state_f_{location_key}"] = auto_fill_result.get("state", "")
+                st.session_state[f"new_district_f_{location_key}"] = auto_fill_result.get("district", "")
+                st.session_state[f"new_area_f_{location_key}"] = auto_fill_result.get("municipality", "")
                 location_auto_filled = True
                 st.info(f"✓ Location auto-filled from pincode: {auto_fill_result.get('state')}, {auto_fill_result.get('district')}")
         
