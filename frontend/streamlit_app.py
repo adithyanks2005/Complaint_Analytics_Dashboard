@@ -618,25 +618,25 @@ st.set_page_config(
 )
 
 # ── Global Styles ──────────────────────────────────────────────────────────────
-# ── Global Styles ──────────────────────────────────────────────────────────────
 st.markdown(r"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 html, body, [class*="css"] { font-family: 'Outfit', sans-serif; }
-.stApp { 
-  background: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%), 
-              radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%), 
-              #050505; 
-  color: #f8fafc; 
+/* Dark theme with enhanced contrast */
+.stApp {
+  background: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.12), transparent 25%),
+              radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.12), transparent 25%),
+              #030303;
+  color: #e2e8f0;
 }
 .main .block-container { padding: 2rem 3rem !important; max-width: 100% !important; }
 
 /* Sidebar styling */
 section[data-testid="stSidebar"] { 
-  background: rgba(10, 10, 15, 0.65) !important; 
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.05) !important; 
+  background: rgba(12, 12, 20, 0.75) !important; 
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important; 
 }
 section[data-testid="stSidebar"] * { color: #cbd5e1 !important; }
 section[data-testid="stSidebar"] hr { border-color: rgba(255, 255, 255, 0.05); }
@@ -649,14 +649,14 @@ section[data-testid="stSidebar"] hr { border-color: rgba(255, 255, 255, 0.05); }
 
 /* Advanced Page Header */
 .page-header { 
-  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); 
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.1); 
+  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%); 
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255,255,255,0.12); 
   border-radius: 20px; 
-  padding: 24px 28px; 
-  margin-bottom: 28px; 
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+  padding: 20px 24px; 
+  margin-bottom: 24px; 
+  box-shadow: 0 16px 32px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.12);
   position: relative;
   overflow: hidden;
 }
@@ -664,12 +664,12 @@ section[data-testid="stSidebar"] hr { border-color: rgba(255, 255, 255, 0.05); }
 .page-header-sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 12px; }
 .header-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .header-badge { 
-  background: rgba(99,102,241,0.2); 
-  border: 1px solid rgba(99,102,241,0.4); 
+  background: rgba(99,102,241,0.25); 
+  border: 1px solid rgba(99,102,241,0.5); 
   border-radius: 50px; 
-  padding: 6px 16px; 
-  font-size: 0.75rem; 
-  color: #a5b4fc; 
+  padding: 6px 18px; 
+  font-size: 0.78rem; 
+  color: #c4b5fd; 
   font-weight: 600; 
   display:inline-flex; 
   align-items:center; 
@@ -701,10 +701,10 @@ section[data-testid="stSidebar"] hr { border-color: rgba(255, 255, 255, 0.05); }
   perspective: 1000px; 
 }
 .kpi-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%);
+  border: 1px solid rgba(255,255,255,0.2);
   border-radius: 16px;
-  padding: 20px 18px;
+  padding: 18px 16px;
   position: relative;
   overflow: hidden;
   flex: 1;
