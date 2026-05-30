@@ -1772,9 +1772,7 @@ with main_col:
             horizontal=True,
             key=f"image_mode_f_{st.session_state.form_key_f}",
         )
-        # Additional button to directly trigger photo capture
-        if st.button("Take Photo", key="take_photo_btn"):
-            image_mode = "Take photo"
+        # Take Photo button removed
         
         if image_mode == "Take photo":
             try:
@@ -1804,6 +1802,12 @@ with main_col:
                 help="Select an image file to attach to your complaint",
             )
             if uploaded_file:
+                col1, col2 = st.columns([2, 1])
+                col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
+                col2.success(f"File: {uploaded_file.name}")
+            # Add external submit button after image handling
+            if st.button("Submit", key="external_submit_btn"):
+                handle_complaint_submission()
                 col1, col2 = st.columns([2, 1])
                 col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
                 col2.success(f"File: {uploaded_file.name}")
