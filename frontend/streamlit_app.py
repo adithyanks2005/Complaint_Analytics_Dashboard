@@ -1740,9 +1740,7 @@ with main_col:
             if auto_fill_result:
                 st.session_state[f"new_state_f_{location_key}"] = auto_fill_result.get("state", "")
                 st.session_state[f"new_district_f_{location_key}"] = auto_fill_result.get("district", "")
-                st.session_state[f"new_area_f_{location_key}"] = auto_fill_result.get("municipality", "")
                 location_auto_filled = True
-                st.info(f"✓ Location auto-filled from pincode: {auto_fill_result.get('state')}, {auto_fill_result.get('district')}")
         
         state_col, district_col = st.columns([1.1, 1.1])
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
@@ -1792,11 +1790,11 @@ with main_col:
                 col1, col2 = st.columns([2, 1])
                 col1.image(camera_file, caption="Photo Preview", use_column_width=True)
                 photo_verified = col2.checkbox(
-                    "✓ I verified this photo and want to upload it",
+                    "✓ I verify this photo is accurate and relevant to my complaint",
                     key=f"verify_camera_f_{st.session_state.form_key_f}",
                 )
                 if photo_verified:
-                    col2.success("Photo ready to upload")
+                    col2.success("Photo verified and ready to submit")
         elif image_mode == "Upload file":
             uploaded_file = st.file_uploader(
                 "Upload image file (JPG, PNG, or WebP)",
@@ -1808,11 +1806,12 @@ with main_col:
                 col1, col2 = st.columns([2, 1])
                 col1.image(uploaded_file, caption="Image Preview", use_column_width=True)
                 col2.success(f"File: {uploaded_file.name}")
-                if st.button("Verify", key="verify_btn"):
-                    st.success("Details verified!")
-                    image_verified = True
-                else:
-                    image_verified = False
+                photo_verified = col2.checkbox(
+                    "✓ I verify this image is accurate and relevant to my complaint",
+                    key=f"verify_upload_f_{st.session_state.form_key_f}",
+                )
+                if photo_verified:
+                    col2.success("Image verified and ready to submit")
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
