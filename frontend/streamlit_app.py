@@ -1606,6 +1606,82 @@ with main_col:
             """, unsafe_allow_html=True)
 
     with tab_submit:
+        def handle_complaint_submission():
+            selected_location = {
+                "state": "" if new_state == "Not provided" else new_state,
+                "district": "" if new_district == "Not provided" else new_district,
+                "municipality": "" if new_municipality == "Not provided" else new_municipality,
+                "area": "" if new_area == "Not provided" else new_area,
+                "village": "" if new_village == "Not provided" else new_village,
+                "pincode": new_pincode.strip(),
+            }
+            final_area = next(
+                (
+                    selected_location[field].strip()
+                    for field in ("area", "village", "municipality", "district", "state")
+                    if selected_location[field].strip()
+                ),
+                "",
+            )
+            final_category = new_category
+            final_contact = user_contact.strip()
+            final_pincode = selected_location["pincode"]
+            image_file = camera_file or uploaded_file
+            final_desc = new_desc.strip()
+            final_priority = infer_priority(final_desc, final_category)
+            if len(final_area) < 2:
+                st.error("Area must be at least 2 characters")
+            elif len(final_category) < 2:
+                st.error("Category must be at least 2 characters")
+            elif final_contact and not is_valid_contact(final_contact):
+                st.error("Enter a valid email ID or mobile number")
+            elif final_pincode and not is_valid_pincode(final_pincode):
+                st.error("Enter a valid 6-digit Indian PIN code")
+            elif image_mode != "No image" and not image_file:
+                st.error("Please attach an image (take a photo or upload a file) before submitting")
+            elif image_mode == "Take photo" and not photo_verified:
+                st.error("Verify the photo before uploading it")
+            elif len(final_desc) < 10:
+                st.error("Description too short")
+            else:
+                try:
+                    image_path = save_uploaded_image(image_file, new_id.strip())
+                    created = insert_complaint({
+                        "id": new_id.strip(),
+                        "created_date": new_date.isoformat(),
+                        "closed_date": None,
+                        "state": selected_location.get("state") or None,
+                        "district": selected_location.get("district") or None,
+                        "municipality": selected_location.get("municipality") or None,
+                        "village": selected_location.get("village") or None,
+                        "area": final_area,
+                        "pincode": final_pincode or None,
+                        "category": final_category,
+                        "priority": final_priority,
+                        "status": "Pending",
+                        "description": final_desc,
+                        "user_contact": final_contact or None,
+                        "image_path": image_path,
+                    })
+                    st.session_state.submit_msg = f"Complaint {new_id} registered"
+                    st.session_state.last_complaint_receipt = created
+                    if final_contact:
+                        notify_user(
+                            final_contact,
+                            f"Your complaint <b>{new_id}</b> has been registered successfully. "
+                            "Our team will review it shortly. You can track its status on the dashboard.",
+                        )
+                    st.session_state.form_key_f += 1
+                    st.session_state.new_complaint_id = get_next_complaint_id()
+                    _refresh()
+                    st.rerun()
+                except DuplicateComplaintError:
+                    st.error("Complaint ID already exists")
+                except Exception as e:
+                    st.error(f"Failed to save complaint: {e}")
+
+        if st.button("Submit Complaint", key="submit_btn_after_image"):
+            st.session_state.submit_clicked = True
         if st.session_state.submit_msg:
             st.success(st.session_state.submit_msg)
             st.session_state.submit_msg = None
@@ -1648,7 +1724,6 @@ with main_col:
         location_key = st.session_state.form_key_f
         st.markdown("Location")
         
-        # Show pincode first for auto-fill
         id_col, pincode_col = st.columns([1, 1.5])
         new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
         new_pincode = pincode_col.text_input(
@@ -1659,7 +1734,6 @@ with main_col:
             help="Enter a 6-digit pincode to auto-fill location details"
         )
         
-        # Auto-fill location when valid pincode is entered
         location_auto_filled = False
         if new_pincode and is_valid_pincode(new_pincode):
             auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
@@ -1667,7 +1741,6 @@ with main_col:
                 location_auto_filled = True
                 st.info(f"✓ Location auto-filled from pincode: {auto_fill_result.get('state')}, {auto_fill_result.get('district')}")
         
-        # Location selectors
         state_col, district_col = st.columns([1.1, 1.1])
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
@@ -1688,9 +1761,6 @@ with main_col:
         new_municipality = "Not provided"
         new_village = "Not provided"
 
-
-
-        # Image upload section with better UX (placed outside form so it is dynamic and triggers reruns on selection)
         camera_file = None
         uploaded_file = None
         photo_verified = False
@@ -1751,79 +1821,11 @@ with main_col:
             )
 
             if st.form_submit_button("Submit"):
-                selected_location = {
-                    "state": "" if new_state == "Not provided" else new_state,
-                    "district": "" if new_district == "Not provided" else new_district,
-                    "municipality": "" if new_municipality == "Not provided" else new_municipality,
-                    "area": "" if new_area == "Not provided" else new_area,
-                    "village": "" if new_village == "Not provided" else new_village,
-                    "pincode": new_pincode.strip(),
-                }
-                final_area = next(
-                    (
-                        selected_location[field].strip()
-                        for field in ("area", "village", "municipality", "district", "state")
-                        if selected_location[field].strip()
-                    ),
-                    "",
-                )
-                final_category = new_category
-                final_contact = user_contact.strip()
-                final_pincode = selected_location["pincode"]
-                image_file = camera_file or uploaded_file
-                final_desc = new_desc.strip()
-                final_priority = infer_priority(final_desc, final_category)
-                if len(final_area) < 2:
-                    st.error("Area must be at least 2 characters")
-                elif len(final_category) < 2:
-                    st.error("Category must be at least 2 characters")
-                elif final_contact and not is_valid_contact(final_contact):
-                    st.error("Enter a valid email ID or mobile number")
-                elif final_pincode and not is_valid_pincode(final_pincode):
-                    st.error("Enter a valid 6-digit Indian PIN code")
-                elif image_mode != "No image" and not image_file:
-                    st.error("Please attach an image (take a photo or upload a file) before submitting")
-                elif image_mode == "Take photo" and not photo_verified:
-                    st.error("Verify the photo before uploading it")
-                elif len(final_desc) < 10:
-                    st.error("Description too short")
-                else:
-                    try:
-                        image_path = save_uploaded_image(image_file, new_id.strip())
-                        created = insert_complaint({
-                            "id": new_id.strip(),
-                            "created_date": new_date.isoformat(),
-                            "closed_date": None,
-                            "state": selected_location.get("state") or None,
-                            "district": selected_location.get("district") or None,
-                            "municipality": selected_location.get("municipality") or None,
-                            "village": selected_location.get("village") or None,
-                            "area": final_area,
-                            "pincode": final_pincode or None,
-                            "category": final_category,
-                            "priority": final_priority,
-                            "status": "Pending",
-                            "description": final_desc,
-                            "user_contact": final_contact or None,
-                            "image_path": image_path,
-                        })
-                        st.session_state.submit_msg = f"Complaint {new_id} registered"
-                        st.session_state.last_complaint_receipt = created
-                        # Notify user about successful registration
-                        if final_contact:
-                            notify_user(
-                                final_contact,
-                                f"Your complaint <b>{new_id}</b> has been registered successfully. "
-                                "Our team will review it shortly. You can track its status on the dashboard.",
-                            )
-                        st.session_state.form_key_f += 1
-                        st.session_state.new_complaint_id = get_next_complaint_id()
-                        _refresh()
-                        st.rerun()
-                    except DuplicateComplaintError:
-                        st.error("Complaint ID already exists")
-                    except Exception as e:
-                        st.error(f"Failed to save complaint: {e}")
+                handle_complaint_submission()
+            
+            if st.session_state.get('submit_clicked'):
+                handle_complaint_submission()
+                st.session_state.submit_clicked = False
 
 # ── Admin Panel (below dashboard when logged in) ───────────────────────────────
 if st.session_state.is_admin:
