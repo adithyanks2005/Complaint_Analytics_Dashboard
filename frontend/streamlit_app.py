@@ -1669,6 +1669,45 @@ with main_col:
 
 
 
+        # Image upload section with better UX (placed outside form so it is dynamic and triggers reruns on selection)
+        camera_file = None
+        uploaded_file = None
+        photo_verified = False
+        
+        st.markdown("#### 📸 Attach Image (Optional)")
+        image_mode = st.radio(
+            "Choose image source:",
+            ["No image", "Take photo", "Upload file"],
+            horizontal=True,
+            key=f"image_mode_f_{st.session_state.form_key_f}",
+        )
+        
+        if image_mode == "Take photo":
+            camera_file = st.camera_input(
+                "Take a photo of the issue",
+                key=f"new_camera_f_{st.session_state.form_key_f}",
+            )
+            if camera_file:
+                col1, col2 = st.columns([2, 1])
+                col1.image(camera_file, caption="Photo Preview", use_container_width=True)
+                photo_verified = col2.checkbox(
+                    "✓ I verified this photo and want to upload it",
+                    key=f"verify_camera_f_{st.session_state.form_key_f}",
+                )
+                if photo_verified:
+                    col2.success("Photo ready to upload")
+        elif image_mode == "Upload file":
+            uploaded_file = st.file_uploader(
+                "Upload image file (JPG, PNG, or WebP)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key=f"new_image_f_{st.session_state.form_key_f}",
+                help="Select an image file to attach to your complaint"
+            )
+            if uploaded_file:
+                col1, col2 = st.columns([2, 1])
+                col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
+                col2.success(f"File: {uploaded_file.name}")
+
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
@@ -1682,44 +1721,6 @@ with main_col:
                 ["Auto detect", "Low", "Medium", "High"],
                 key=f"new_priority_f_{st.session_state.form_key_f}",
             )
-            camera_file = None
-            uploaded_file = None
-            photo_verified = False
-            
-            # Image upload section with better UX
-            st.markdown("#### 📸 Attach Image (Optional)")
-            image_mode = st.radio(
-                "Choose image source:",
-                ["No image", "Take photo", "Upload file"],
-                horizontal=True,
-                key=f"image_mode_f_{st.session_state.form_key_f}",
-            )
-            
-            if image_mode == "Take photo":
-                camera_file = st.camera_input(
-                    "Take a photo of the issue",
-                    key=f"new_camera_f_{st.session_state.form_key_f}",
-                )
-                if camera_file:
-                    col1, col2 = st.columns([2, 1])
-                    col1.image(camera_file, caption="Photo Preview", use_container_width=True)
-                    photo_verified = col2.checkbox(
-                        "✓ I verified this photo and want to upload it",
-                        key=f"verify_camera_f_{st.session_state.form_key_f}",
-                    )
-                    if photo_verified:
-                        col2.success("Photo ready to upload")
-            elif image_mode == "Upload file":
-                uploaded_file = st.file_uploader(
-                    "Upload image file (JPG, PNG, or WebP)",
-                    type=["jpg", "jpeg", "png", "webp"],
-                    key=f"new_image_f_{st.session_state.form_key_f}",
-                    help="Select an image file to attach to your complaint"
-                )
-                if uploaded_file:
-                    col1, col2 = st.columns([2, 1])
-                    col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
-                    col2.success(f"File: {uploaded_file.name}")
             
             new_desc = st.text_area(
                 "Description",

@@ -265,6 +265,8 @@ PINCODE_DATABASE = {
 def get_location_from_pincode(pincode: str) -> dict | None:
     """
     Retrieve location details for a given pincode.
+    First checks local static database, then falls back to the public Postal PIN Code API
+    to support all pincodes and states across India.
     
     Args:
         pincode: 6-digit Indian pincode
@@ -276,7 +278,43 @@ def get_location_from_pincode(pincode: str) -> dict | None:
         return None
     
     pincode_cleaned = pincode.strip()
-    return PINCODE_DATABASE.get(pincode_cleaned)
+    # 1. Local static lookup
+    local_data = PINCODE_DATABASE.get(pincode_cleaned)
+    if local_data:
+        return local_data
+        
+    # 2. Free Indian Postal PIN Code API Fallback
+    try:
+        import requests
+        import urllib3
+        # Disable warnings for expired SSL certificates commonly encountered on government/free APIs
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        url = f"https://api.postalpincode.in/pincode/{pincode_cleaned}"
+        response = requests.get(url, verify=False, timeout=2.0)
+        if response.status_code == 200:
+            data = response.json()
+            if data and isinstance(data, list) and data[0].get("Status") == "Success":
+                post_offices = data[0].get("PostOffice", [])
+                if post_offices:
+                    po = post_offices[0]
+                    state = po.get("State", "")
+                    district = po.get("District", "")
+                    village = po.get("Name", "")
+                    # Use Division or District as Municipality fallback
+                    municipality = po.get("Division", district)
+                    
+                    return {
+                        "state": state,
+                        "district": district,
+                        "municipality": municipality,
+                        "village": village
+                    }
+    except Exception:
+        # Failsafe: return None to gracefully fallback to manual user input
+        pass
+        
+    return None
 
 
 def get_state_from_pincode(pincode: str) -> str | None:
