@@ -1654,18 +1654,13 @@ with main_col:
         )
         new_district = select_valid_option("District", district_options, f"new_district_f_{location_key}", district_col)
 
-        loc1, loc2, loc3 = st.columns(3)
-        location_filters = {"state": new_state, "district": new_district}
-        municipality_options = build_cascading_location_options(all_df, "municipality", location_filters)
-        new_municipality = select_valid_option("Municipality", municipality_options, f"new_municipality_f_{location_key}", loc1)
-
-        area_filters = {**location_filters, "municipality": new_municipality}
-        area_options = build_cascading_location_options(all_df, "area", area_filters)
-        new_area = select_valid_option("Area", area_options, f"new_area_f_{location_key}", loc2)
-
-        village_filters = {**area_filters, "area": new_area}
-        village_options = build_cascading_location_options(all_df, "village", village_filters)
-        new_village = select_valid_option("Village", village_options, f"new_village_f_{location_key}", loc3)
+        new_area = st.text_input(
+            "Specific Area / Locality (e.g., Street name, Ward, Landmark)",
+            placeholder="Enter the specific location of the issue",
+            key=f"new_area_f_{location_key}"
+        )
+        new_municipality = "Not provided"
+        new_village = "Not provided"
 
 
 
@@ -1674,10 +1669,10 @@ with main_col:
         uploaded_file = None
         photo_verified = False
         
-        st.markdown("#### 📸 Attach Image (Optional)")
+        st.markdown("#### 📸 Attach Image")
         image_mode = st.radio(
             "Choose image source:",
-            ["No image", "Take photo", "Upload file"],
+            ["Take photo", "Upload file"],
             horizontal=True,
             key=f"image_mode_f_{st.session_state.form_key_f}",
         )
@@ -1763,8 +1758,8 @@ with main_col:
                     st.error("Enter a valid email ID or mobile number")
                 elif final_pincode and not is_valid_pincode(final_pincode):
                     st.error("Enter a valid 6-digit Indian PIN code")
-                elif image_mode == "Take photo" and not camera_file:
-                    st.error("Take a photo before submitting")
+                elif not image_file:
+                    st.error("Please attach an image (take a photo or upload a file) before submitting")
                 elif image_mode == "Take photo" and not photo_verified:
                     st.error("Verify the photo before uploading it")
                 elif len(final_desc) < 10:
