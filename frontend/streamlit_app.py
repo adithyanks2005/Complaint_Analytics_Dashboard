@@ -36,6 +36,13 @@ from backend.pincode_lookup import (
     get_location_from_pincode,
 )
 
+# ── Notification helper ────────────────────────────────────────────────────────
+try:
+    from notifier import notify as _notify_real
+    _NOTIFIER_AVAILABLE = True
+except Exception:
+    _NOTIFIER_AVAILABLE = False
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Resolve data/ folder regardless of where Streamlit launches the script from.
 # Candidates in priority order:
@@ -1066,6 +1073,25 @@ def select_valid_option(label: str, options: list[str], key: str, container=st) 
     return container.selectbox(label, options, key=key)
 
 
+def notify_user(contact: str, message: str) -> None:
+    """Send a notification (email or SMS) to the user based on their contact.
+    Routes to Gmail SMTP for emails and Twilio for phone numbers.
+    Falls back to an in-app info banner if credentials are not configured.
+    """
+    contact = (contact or "").strip()
+    if not contact:
+        return
+    subject = "Complaint Analytics Dashboard – Update"
+    if _NOTIFIER_AVAILABLE:
+        try:
+            _notify_real(contact, subject, message)
+            return
+        except Exception as exc:
+            st.warning(f"Notification delivery failed: {exc}")
+    # Fallback: show in-app banner
+    st.info(f"📬 Notification to **{contact}**: {message}")
+
+
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     if uploaded_file is None:
         return None
@@ -1678,10 +1704,16 @@ with main_col:
         )
         
         if image_mode == "Take photo":
-            camera_file = st.camera_input(
-                "Take a photo of the issue",
-                key=f"new_camera_f_{st.session_state.form_key_f}",
-            )
+            try:
+                from streamlit_back_camera_input import back_camera_input
+                camera_file = back_camera_input(
+                    key=f"new_camera_f_{st.session_state.form_key_f}",
+                )
+            except Exception:
+                camera_file = st.camera_input(
+                    "Take a photo of the issue",
+                    key=f"new_camera_f_{st.session_state.form_key_f}",
+                )
             if camera_file:
                 col1, col2 = st.columns([2, 1])
                 col1.image(camera_file, caption="Photo Preview", use_container_width=True)
@@ -1777,6 +1809,13 @@ with main_col:
                         })
                         st.session_state.submit_msg = f"Complaint {new_id} registered"
                         st.session_state.last_complaint_receipt = created
+                        # Notify user about successful registration
+                        if final_contact:
+                            notify_user(
+                                final_contact,
+                                f"Your complaint <b>{new_id}</b> has been registered successfully. "
+                                "Our team will review it shortly. You can track its status on the dashboard.",
+                            )
                         st.session_state.form_key_f += 1
                         st.session_state.new_complaint_id = get_next_complaint_id()
                         _refresh()
@@ -1840,6 +1879,15 @@ if st.session_state.is_admin:
                             "description": upd_desc,
                         })
                         st.success(f"Updated {sel_id}")
+                        # Notify complainant if complaint was just closed
+                        if upd_status == "Closed":
+                            complainant_contact = str(row.get("user_contact") or "")
+                            if complainant_contact:
+                                notify_user(
+                                    complainant_contact,
+                                    f"Your complaint <b>{sel_id}</b> has been marked as <b>Closed</b>. "
+                                    "Thank you for reaching out — our team has resolved your issue!",
+                                )
                         _refresh()
                         st.rerun()
                     except Exception as e:
