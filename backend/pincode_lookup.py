@@ -326,7 +326,10 @@ def get_location_from_pincode(pincode: str) -> dict | None:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         
         url = f"https://api.postalpincode.in/pincode/{pincode_cleaned}"
-        response = requests.get(url, verify=False, timeout=2.0)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers, verify=False, timeout=5.0)
         if response.status_code == 200:
             data = response.json()
             if data and isinstance(data, list) and data[0].get("Status") == "Success":

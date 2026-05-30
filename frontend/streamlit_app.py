@@ -1134,7 +1134,7 @@ def format_combined_location(location: dict[str, str]) -> str:
     ]
     if len(filled_parts) == 1:
         field, value = filled_parts[0]
-        return f"{field.title()}: {value}"
+        return value
     parts = [value for _, value in filled_parts]
     label = ", ".join(part for part in parts if part)
     pincode = location.get("pincode")
@@ -1144,7 +1144,7 @@ def format_combined_location(location: dict[str, str]) -> str:
         return label
     for field in LOCATION_FIELDS:
         if location.get(field):
-            return f"{field.title()}: {location[field]}"
+            return location[field]
     return "Select location"
 
 
@@ -1672,7 +1672,7 @@ with main_col:
         st.markdown("#### 📸 Attach Image")
         image_mode = st.radio(
             "Choose image source:",
-            ["Take photo", "Upload file"],
+            ["No image", "Take photo", "Upload file"],
             horizontal=True,
             key=f"image_mode_f_{st.session_state.form_key_f}",
         )
@@ -1704,6 +1704,7 @@ with main_col:
                 col2.success(f"File: {uploaded_file.name}")
 
         with st.form("new_complaint", clear_on_submit=False):
+            new_desc = "No description provided"
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
@@ -1715,12 +1716,6 @@ with main_col:
                 "Priority",
                 ["Auto detect", "Low", "Medium", "High"],
                 key=f"new_priority_f_{st.session_state.form_key_f}",
-            )
-            
-            new_desc = st.text_area(
-                "Description",
-                placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
-                key=f"new_desc_f_{st.session_state.form_key_f}",
             )
 
             if st.form_submit_button("Submit"):
@@ -1758,12 +1753,10 @@ with main_col:
                     st.error("Enter a valid email ID or mobile number")
                 elif final_pincode and not is_valid_pincode(final_pincode):
                     st.error("Enter a valid 6-digit Indian PIN code")
-                elif not image_file:
+                elif image_mode != "No image" and not image_file:
                     st.error("Please attach an image (take a photo or upload a file) before submitting")
                 elif image_mode == "Take photo" and not photo_verified:
                     st.error("Verify the photo before uploading it")
-                elif len(final_desc) < 10:
-                    st.error("Description too short")
                 else:
                     try:
                         image_path = save_uploaded_image(image_file, new_id.strip())
