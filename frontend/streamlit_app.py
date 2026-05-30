@@ -1705,7 +1705,7 @@ with main_col:
             if receipt.get("image_path"):
                 image_file = PROJECT_ROOT / str(receipt["image_path"])
                 if image_file.exists():
-                    st.image(str(image_file), caption="Attached image", use_container_width=True)
+                    st.image(str(image_file), caption="Attached image", use_column_width=True)
             st.download_button(
                 "Download Receipt",
                 data=build_receipt(receipt).encode("utf-8"),
@@ -1787,7 +1787,7 @@ with main_col:
                 )
             if camera_file:
                 col1, col2 = st.columns([2, 1])
-                col1.image(camera_file, caption="Photo Preview", use_container_width=True)
+                col1.image(camera_file, caption="Photo Preview", use_column_width=True)
                 photo_verified = col2.checkbox(
                     "✓ I verified this photo and want to upload it",
                     key=f"verify_camera_f_{st.session_state.form_key_f}",
@@ -1803,7 +1803,7 @@ with main_col:
             )
             if uploaded_file:
                 col1, col2 = st.columns([2, 1])
-                col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
+                col1.image(uploaded_file, caption="Image Preview", use_column_width=True)
                 col2.success(f"File: {uploaded_file.name}")
                 if st.button("Verify", key="verify_btn"):
                     st.success("Details verified!")
