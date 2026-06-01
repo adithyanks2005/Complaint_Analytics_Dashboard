@@ -5,8 +5,8 @@
 
 A **premium, production‑ready** complaint‑analytics dashboard built with **Streamlit** (frontend) and a lightweight **SQLite** backend (optionally Supabase). The repository includes:
 
-- **Dockerfile** – containerised runtime
-- **GitHub Actions CI** – lint, test, and Docker image build on every push
+- **Dockerfile** - containerised runtime
+- **GitHub Actions CI** - lint, test, and Docker image build on every push
 - **Comprehensive pytest suite** in `tests/`
 - **Flake8 configuration** (`setup.cfg`)
 - **Environment template** (`.env.example`)
@@ -62,7 +62,7 @@ Visit `http://localhost:8501` (or replace `localhost` with your host IP).
 
 ---
 
-## ✅ Testing
+## Testing
 ```bash
 pytest tests -q   # 7 passed
 ```
@@ -77,7 +77,7 @@ The workflow lives at `.github/workflows/ci.yml` and runs on every push & PR:
 3. **Install dependencies** (including optional Supabase/Twilio)
 4. **Lint** `backend/` with **flake8**
 5. **Run tests** in `tests/`
-6. **Build Docker image** (available as `complaint-dashboard` locally – you can push to a registry by extending the workflow).
+6. **Build Docker image** (available as `complaint-dashboard` locally - you can push to a registry by extending the workflow).
 
 ---
 
@@ -89,4 +89,4 @@ The workflow lives at `.github/workflows/ci.yml` and runs on every push & PR:
 ---
 
 ## 📄 License
-This project is licensed under the **MIT License** – feel free to fork, modify, and deploy.
+This project is licensed under the **MIT License** - feel free to fork, modify, and deploy.

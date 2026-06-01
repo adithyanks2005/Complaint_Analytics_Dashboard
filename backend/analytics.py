@@ -125,10 +125,10 @@ def category_summary(df: pd.DataFrame) -> list[dict[str, object]]:
 
 def records(df: pd.DataFrame) -> list[dict[str, object]]:
     output = df.copy()
-    # Format date columns as ISO strings; NaT → None
+    # Format date columns as ISO strings; NaT becomes None.
     for col in ["created_date", "closed_date"]:
         output[col] = output[col].dt.strftime("%Y-%m-%d")
         output[col] = output[col].where(output[col].notna(), None)
-    # Drop internal computed column — not part of the public API contract
+    # Drop internal computed column; it is not part of the public API contract.
     output = output.drop(columns=["closure_days"], errors="ignore")
     return output.to_dict(orient="records")

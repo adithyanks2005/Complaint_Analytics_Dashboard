@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 import re
+import os
 import uuid
 from datetime import date
 from pathlib import Path
@@ -46,7 +47,7 @@ except Exception:
 # ── Paths ──────────────────────────────────────────────────────────────────────
 # Resolve data/ folder regardless of where Streamlit launches the script from.
 # Candidates in priority order:
-#   1. <repo_root>/data/  (local: frontend/streamlit_app.py → parent.parent)
+#   1. <repo_root>/data/  (local: frontend/streamlit_app.py -> parent.parent)
 #   2. data/ relative to cwd (Streamlit Cloud runs from repo root)
 #   3. /tmp/  (Vercel / read-only filesystems)
 def _find_data_dir() -> Path:
@@ -57,7 +58,7 @@ def _find_data_dir() -> Path:
     for c in candidates:
         if c.exists():
             return c
-    # None found — use first candidate and create it
+    # None found - use first candidate and create it
     candidates[0].mkdir(parents=True, exist_ok=True)
     return candidates[0]
 
@@ -70,8 +71,8 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+ADMIN_USERNAME = os.getenv("DASHBOARD_ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("DASHBOARD_ADMIN_PASSWORD", "admin123")
 GENERIC_AREA_LABELS = {
     "Central Zone",
     "East Zone",
@@ -1081,7 +1082,7 @@ def notify_user(contact: str, message: str) -> None:
     contact = (contact or "").strip()
     if not contact:
         return
-    subject = "Complaint Analytics Dashboard – Update"
+    subject = "Complaint Analytics Dashboard - Update"
     if _NOTIFIER_AVAILABLE:
         try:
             _notify_real(contact, subject, message)
@@ -1089,7 +1090,7 @@ def notify_user(contact: str, message: str) -> None:
         except Exception as exc:
             st.warning(f"Notification delivery failed: {exc}")
     # Fallback: show in-app banner
-    st.info(f"📬 Notification to **{contact}**: {message}")
+    st.info(f"Notification to **{contact}**: {message}")
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -1200,14 +1201,6 @@ def build_combined_location_options(df: pd.DataFrame, area_options: list[str]) -
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('## Analytics Dashboard')
-    # Dark mode toggle
-    if "dark_mode" not in st.session_state:
-        st.session_state.dark_mode = True
-    dark = st.checkbox("🌙 Dark mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
-    st.session_state.dark_mode = dark
-    mode_bg = "#0f111a" if dark else "#ffffff"
-    mode_text = "#e2e8f0" if dark else "#111827"
-    st.markdown(f"<style>body {{ background-color: {mode_bg}; color: {mode_text}; }}</style>", unsafe_allow_html=True)
     st.markdown("---")
 
     all_df = load_all()
@@ -1338,7 +1331,7 @@ category_df = (
 main_col = st.container()
 
 with main_col:
-    date_range = f"{af['start_date'].strftime('%b %d')} → {af['end_date'].strftime('%b %d, %Y')}"
+    date_range = f"{af['start_date'].strftime('%b %d')} to {af['end_date'].strftime('%b %d, %Y')}"
     admin_badge = '<span class="header-badge" style="background:rgba(99,102,241,0.3);border-color:rgba(139,92,246,0.6)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Admin</span>' if st.session_state.is_admin else ""
 
     st.markdown(f"""
@@ -1360,33 +1353,6 @@ with main_col:
     {admin_badge}
   </div>
 </div>
-""", unsafe_allow_html=True)
-
-    # Inject JS to show browser's local time (updates every second) using an onerror handler
-    st.markdown("""
-<img src="x" onerror="
-  (function() {
-    function updateClock() {
-      var clock = document.getElementById('live-clock');
-      if (clock) {
-        var now = new Date();
-        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        var month = months[now.getMonth()];
-        var day = String(now.getDate()).padStart(2, '0');
-        var year = now.getFullYear();
-        var hours = String(now.getHours()).padStart(2, '0');
-        var minutes = String(now.getMinutes()).padStart(2, '0');
-        var seconds = String(now.getSeconds()).padStart(2, '0');
-        clock.textContent = month + ' ' + day + ', ' + year + ' • ' + hours + ':' + minutes + ':' + seconds;
-      }
-    }
-    updateClock();
-    if (window.liveClockInterval) {
-      clearInterval(window.liveClockInterval);
-    }
-    window.liveClockInterval = setInterval(updateClock, 1000);
-  })()
-" style="display:none;"/>
 """, unsafe_allow_html=True)
 
     components.html("""
@@ -1510,7 +1476,7 @@ with main_col:
             else:
                 st.markdown("""
                 <div class="no-results-card">
-                    <div class="no-results-icon">📈</div>
+                    <div class="no-results-icon">No data</div>
                     <div class="no-results-title">No Trend Data</div>
                     <div class="no-results-sub">Adjust your filters to see monthly complaint trends</div>
                 </div>
@@ -1528,7 +1494,7 @@ with main_col:
             else:
                 st.markdown("""
                 <div class="no-results-card">
-                    <div class="no-results-icon">🗂️</div>
+                    <div class="no-results-icon">No data</div>
                     <div class="no-results-title">No Category Data</div>
                     <div class="no-results-sub">No categories found in the selected range</div>
                 </div>
@@ -1558,7 +1524,7 @@ with main_col:
             else:
                 st.markdown("""
                 <div class="no-results-card">
-                    <div class="no-results-icon">🏙️</div>
+                    <div class="no-results-icon">No data</div>
                     <div class="no-results-title">No Area Data</div>
                     <div class="no-results-sub">No area distribution available for these filters</div>
                 </div>
@@ -1578,7 +1544,7 @@ with main_col:
                 else:
                     st.markdown("""
                     <div class="no-results-card">
-                        <div class="no-results-icon">⏱️</div>
+                        <div class="no-results-icon">No data</div>
                         <div class="no-results-title">No Closure Data</div>
                         <div class="no-results-sub">Not enough closed complaints to calculate averages</div>
                     </div>
@@ -1586,7 +1552,7 @@ with main_col:
             else:
                 st.markdown("""
                 <div class="no-results-card">
-                    <div class="no-results-icon">⏱️</div>
+                    <div class="no-results-icon">No data</div>
                     <div class="no-results-title">No Data</div>
                     <div class="no-results-sub">Select a broader range to see closure time analytics</div>
                 </div>
@@ -1607,7 +1573,7 @@ with main_col:
         else:
             st.markdown("""
             <div class="no-results-card" style="min-height: 400px;">
-                <div class="no-results-icon">📋</div>
+                <div class="no-results-icon">No records</div>
                 <div class="no-results-title">No Matching Records</div>
                 <div class="no-results-sub">Try adjusting your filters or search criteria in the sidebar to find records.</div>
             </div>
@@ -1647,8 +1613,8 @@ with main_col:
                 st.error("Enter a valid 6-digit Indian PIN code")
             elif image_mode != "No image" and not image_file:
                 st.error("Please attach an image (take a photo or upload a file) before submitting")
-            elif image_mode == "Take photo" and not photo_verified:
-                st.error("Verify the photo before uploading it")
+            elif image_mode != "No image" and not photo_verified:
+                st.error("Verify the attached image before submitting")
             elif len(final_desc) < 10:
                 st.error("Description too short")
             else:
@@ -1713,7 +1679,7 @@ with main_col:
             if receipt.get("image_path"):
                 image_file = PROJECT_ROOT / str(receipt["image_path"])
                 if image_file.exists():
-                    st.image(str(image_file), caption="Attached image", use_column_width=True)
+                    st.image(str(image_file), caption="Attached image", use_container_width=True)
             st.download_button(
                 "Download Receipt",
                 data=build_receipt(receipt).encode("utf-8"),
@@ -1773,17 +1739,17 @@ with main_col:
         camera_file = None
         uploaded_file = None
         photo_verified = False
-        
-        st.markdown("#### 📸 Attach Image")
+
+        st.markdown("#### Attach Photo / Image")
         image_mode = st.radio(
             "Choose image source:",
             ["No image", "Take photo", "Upload file"],
             horizontal=True,
             key=f"image_mode_f_{st.session_state.form_key_f}",
         )
-        # Take Photo button removed
-        
+
         if image_mode == "Take photo":
+            st.info("Point your camera at the issue and click **Take Photo**")
             try:
                 from streamlit_back_camera_input import back_camera_input
                 camera_file = back_camera_input(
@@ -1796,13 +1762,16 @@ with main_col:
                 )
             if camera_file:
                 col1, col2 = st.columns([2, 1])
-                col1.image(camera_file, caption="Photo Preview", use_column_width=True)
+                col1.image(camera_file, caption="Photo Preview", use_container_width=True)
                 photo_verified = col2.checkbox(
-                    "✓ I verify this photo is accurate and relevant to my complaint",
+                    "I verify this photo is accurate and relevant to my complaint",
                     key=f"verify_camera_f_{st.session_state.form_key_f}",
                 )
                 if photo_verified:
-                    col2.success("Photo verified and ready to submit")
+                    col2.success("Photo verified")
+                else:
+                    col2.warning("Please verify before submitting")
+
         elif image_mode == "Upload file":
             uploaded_file = st.file_uploader(
                 "Upload image file (JPG, PNG, or WebP)",
@@ -1812,14 +1781,16 @@ with main_col:
             )
             if uploaded_file:
                 col1, col2 = st.columns([2, 1])
-                col1.image(uploaded_file, caption="Image Preview", use_column_width=True)
-                col2.success(f"File: {uploaded_file.name}")
+                col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
+                col2.success(f"Attached: {uploaded_file.name}")
                 photo_verified = col2.checkbox(
-                    "✓ I verify this image is accurate and relevant to my complaint",
+                    "I verify this image is accurate and relevant to my complaint",
                     key=f"verify_upload_f_{st.session_state.form_key_f}",
                 )
                 if photo_verified:
-                    col2.success("Image verified and ready to submit")
+                    col2.success("Image verified")
+                else:
+                    col2.warning("Please verify before submitting")
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
@@ -1838,8 +1809,6 @@ with main_col:
 
             if st.form_submit_button("Submit Complaint"):
                 handle_complaint_submission()
-                # Show confirmation to the user
-                st.success("✅ Your complaint has been recorded. We will notify you via the provided contact method.")
             
             
 
@@ -1904,7 +1873,7 @@ if st.session_state.is_admin:
                                 notify_user(
                                     complainant_contact,
                                     f"Your complaint <b>{sel_id}</b> has been marked as <b>Closed</b>. "
-                                    "Thank you for reaching out — our team has resolved your issue!",
+                                    "Thank you for reaching out - our team has resolved your issue!",
                                 )
                         _refresh()
                         st.rerun()
