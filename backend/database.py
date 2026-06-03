@@ -105,21 +105,6 @@ def generate_next_id() -> str:
 def generate_next_id_supabase() -> str:
     """Generate next ID using Supabase backend when applicable."""
     client = get_supabase_client()
-    response = client.table(SUPABASE_TABLE).select("id").execute()
-    ids = [rec["id"] for rec in (response.data or [])]
-    highest = max(
-        (int(id.split("-")[-1]) for id in ids if str(id).split("-")[-1].isdigit()),
-        default=0,
-    )
-    return f"CMP-{highest + 1:03d}"
-
-
-
-def get_connection() -> sqlite3.Connection:
-    """Return a thread-safe SQLite connection with WAL mode and Row factory."""
-    connection = sqlite3.connect(DB_PATH, check_same_thread=False)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA synchronous=NORMAL")
     return connection
 
