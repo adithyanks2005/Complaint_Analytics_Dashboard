@@ -4,7 +4,7 @@ plotly==5.24.1
 python-dotenv==1.0.1
 supabase==2.10.0
 twilio>=9.0.0
-streamlit-back-camera-input>=0.1.1
+streamlit-back-camera-input==0.1.1
 flake8==7.0.0
 fastapi>=0.110.0
 uvicorn>=0.29.0
