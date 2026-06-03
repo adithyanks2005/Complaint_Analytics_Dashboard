@@ -33,6 +33,7 @@ from backend.database import (
     update_complaint_record,
     using_supabase,
 )
+from backend.ai_prioritizer import compute_priority
 from backend.pincode_lookup import (
     get_location_from_pincode,
 )
@@ -1602,7 +1603,7 @@ with main_col:
             final_pincode = selected_location["pincode"]
             image_file = camera_file or uploaded_file
             final_desc = new_desc.strip()
-            final_priority = infer_priority(final_desc, final_category)
+            final_priority = compute_priority(final_desc)
             if len(final_area) < 2:
                 st.error("Area must be at least 2 characters")
             elif len(final_category) < 2:
