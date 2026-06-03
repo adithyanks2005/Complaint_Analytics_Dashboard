@@ -24,12 +24,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install streamlit pandas plotly python-dotenv pytest flake8 fastapi uvicorn
-          pip install supabase twilio || true
+          # Install core deps from requirements.txt (skip packages that may fail)
+          pip install streamlit pandas plotly python-dotenv fastapi uvicorn flake8 pytest pytest-asyncio || true
+          # Optional / cloud packages – failure is OK
+          pip install supabase twilio streamlit-back-camera-input || true
 
       - name: Lint with flake8
         run: |
-          flake8 backend/ --max-line-length=120 --ignore=E501,W503
+          python -m flake8 backend/ --max-line-length=120 --ignore=E501,W503
 
       - name: Run unit tests
         run: |
