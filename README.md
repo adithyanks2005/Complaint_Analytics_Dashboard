@@ -1,5 +1,5 @@
 # Complaint Analytics Dashboard 📊
-![CI](https://github.com/adithyanks2005/Complaint_Analytics_Dashboard/actions/workflows/ci.yml/badge.svg) ![Docker](https://ghcr-badge.egpl.io/adithyanks2005/complaint-dashboard)
+![CI](https://github.com/adithyanks2005/Complaint_Analytics_Dashboard/actions/workflows/ci.yml/badge.svg) ![Docker](https://ghcr-badge.egpl.io/adithyanks2005/complaint-dashboard) ![Streamlit](https://static.streamlit.io/badges/streamlit_badge.svg)
 
 ![Dashboard UI Mockup](file:///C:/Users/adith/.gemini/antigravity-ide/brain/a3f07fd0-16a1-4c6b-85c3-d5c843a4a95f/dashboard_ui_mockup_1780164687369.png)
 
@@ -91,4 +91,4 @@ The workflow lives at `.github/workflows/ci.yml` and runs on every push & PR:
 ## 📄 License
 This project is licensed under the **MIT License** - feel free to fork, modify, and deploy.
 
-🚀 Deployed on Streamlit Cloud – live at https://complaint-analytics-dashboard.streamlit.app
+Deployed on Streamlit Cloud - live at https://complaint-analytics-dashboard.streamlit.app

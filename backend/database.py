@@ -29,7 +29,7 @@ SUPABASE_KEY = (
     or os.getenv("SUPABASE_ANON_KEY")
 )
 
-# Database file location – Vercel uses /tmp, otherwise local data folder
+# Database file location - Vercel uses /tmp, otherwise local data folder
 if os.getenv("VERCEL"):
     DB_PATH = Path("/tmp/complaints.db")
 else:
@@ -128,12 +128,20 @@ def generate_next_id() -> str:
         return f"CMP-{highest + 1:03d}"
 
 def generate_next_id_supabase() -> str:
-    """Generate a new ID via Supabase when configured.
-    Currently not implemented – falls back to the local generator.
-    """
-    if using_supabase():
-        raise NotImplementedError("Supabase ID generation not implemented")
-    return generate_next_id()
+    """Generate the next complaint ID from the configured Supabase table."""
+    if not using_supabase():
+        return generate_next_id()
+    resp = get_supabase_client().table(SUPABASE_TABLE).select("id").execute()
+    ids = [str(record.get("id", "")) for record in (resp.data or [])]
+    highest = max(
+        (
+            int(complaint_id.split("-")[-1])
+            for complaint_id in ids
+            if complaint_id.split("-")[-1].isdigit()
+        ),
+        default=0,
+    )
+    return f"CMP-{highest + 1:03d}"
 
 # ---------------------------------------------------------------------------
 # Database initialisation and migration

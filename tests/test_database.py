@@ -96,3 +96,27 @@ def test_generate_next_id_increments():
     n1 = int(r1["id"].split("-")[-1])
     n2 = int(r2["id"].split("-")[-1])
     assert n2 > n1
+
+
+def test_generate_next_id_supabase_reads_remote_ids(monkeypatch):
+    """Supabase ID generation should use the highest remote complaint suffix."""
+
+    class _FakeResponse:
+        data = [{"id": "CMP-002"}, {"id": "CMP-120"}, {"id": "legacy"}]
+
+    class _FakeTable:
+        def select(self, _columns):
+            return self
+
+        def execute(self):
+            return _FakeResponse()
+
+    class _FakeClient:
+        def table(self, _table_name):
+            return _FakeTable()
+
+    monkeypatch.setattr(db, "SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setattr(db, "SUPABASE_KEY", "test-key")
+    monkeypatch.setattr(db, "get_supabase_client", lambda: _FakeClient())
+
+    assert db.generate_next_id_supabase() == "CMP-121"

@@ -74,6 +74,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ADMIN_USERNAME = os.getenv("DASHBOARD_ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("DASHBOARD_ADMIN_PASSWORD", "admin123")
+MAX_DESCRIPTION_LENGTH = 300
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 GENERIC_AREA_LABELS = {
     "Central Zone",
     "East Zone",
@@ -1097,7 +1099,8 @@ def notify_user(contact: str, message: str) -> None:
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     if uploaded_file is None:
         return None
-    suffix = Path(uploaded_file.name).suffix.lower()
+    file_name = getattr(uploaded_file, "name", "") or "attachment.jpg"
+    suffix = Path(file_name).suffix.lower()
     if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
         suffix = ".jpg"
     filename = f"{complaint_id}_{uuid.uuid4().hex[:8]}{suffix}"
@@ -1606,18 +1609,26 @@ with main_col:
             final_priority = compute_priority(final_desc)
             if len(final_area) < 2:
                 st.error("Area must be at least 2 characters")
+            elif len(final_area) > 80:
+                st.error("Area must be 80 characters or fewer")
             elif len(final_category) < 2:
                 st.error("Category must be at least 2 characters")
             elif final_contact and not is_valid_contact(final_contact):
                 st.error("Enter a valid email ID or mobile number")
             elif final_pincode and not is_valid_pincode(final_pincode):
                 st.error("Enter a valid 6-digit Indian PIN code")
+            elif new_date > date.today():
+                st.error("Complaint date cannot be in the future")
             elif image_mode != "No image" and not image_file:
                 st.error("Please attach an image (take a photo or upload a file) before submitting")
             elif image_mode != "No image" and not photo_verified:
                 st.error("Verify the attached image before submitting")
+            elif image_file and len(image_file.getvalue()) > MAX_IMAGE_BYTES:
+                st.error("Image must be 5 MB or smaller")
             elif len(final_desc) < 10:
                 st.error("Description too short")
+            elif len(final_desc) > MAX_DESCRIPTION_LENGTH:
+                st.error(f"Description must be {MAX_DESCRIPTION_LENGTH} characters or fewer")
             else:
                 try:
                     image_path = save_uploaded_image(image_file, new_id.strip())
@@ -1732,6 +1743,7 @@ with main_col:
         new_area = st.text_input(
             "Specific Area / Locality (e.g., Street name, Ward, Landmark)",
             placeholder="Enter the specific location of the issue",
+            max_chars=80,
             key=f"new_area_f_{location_key}"
         )
         new_municipality = "Not provided"
@@ -1800,11 +1812,18 @@ with main_col:
                 placeholder="Add contact details for follow-up",
                 key=f"user_contact_f_{st.session_state.form_key_f}",
             )
-            new_date = st.date_input("Date", value=date.today(), key=f"new_date_f_{st.session_state.form_key_f}", format="DD/MM/YYYY")
+            new_date = st.date_input(
+                "Date",
+                value=date.today(),
+                max_value=date.today(),
+                key=f"new_date_f_{st.session_state.form_key_f}",
+                format="DD/MM/YYYY",
+            )
             
             new_desc = st.text_area(
                 "Description",
                 placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
+                max_chars=MAX_DESCRIPTION_LENGTH,
                 key=f"new_desc_f_{st.session_state.form_key_f}",
             )
 
@@ -1848,8 +1867,12 @@ if st.session_state.is_admin:
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):
                     closed_val = upd_closed.isoformat() if upd_closed else None
                     final_admin_pincode = upd_pincode.strip()
+                    created_for_check = row["created_date"].date() if pd.notna(row["created_date"]) else date.today()
                     if final_admin_pincode and not is_valid_pincode(final_admin_pincode):
                         st.error("Enter a valid 6-digit Indian PIN code")
+                        st.stop()
+                    if upd_closed and upd_closed < created_for_check:
+                        st.error("Closed date cannot be before created date")
                         st.stop()
                     try:
                         update_complaint_record(sel_id, {
