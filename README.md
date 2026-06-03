@@ -90,3 +90,5 @@ The workflow lives at `.github/workflows/ci.yml` and runs on every push & PR:
 
 ## 📄 License
 This project is licensed under the **MIT License** - feel free to fork, modify, and deploy.
+
+🚀 Deployed on Streamlit Cloud – live at https://complaint-analytics-dashboard.streamlit.app
