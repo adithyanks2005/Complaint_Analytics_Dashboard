@@ -5,7 +5,7 @@ from datetime import date
 from io import StringIO
 from pathlib import Path
 import re
-from typing import Annotated, Literal, Optional
+from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,10 +33,12 @@ from backend.database import (
     update_complaint_record,
 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     yield
+
 
 app = FastAPI(
     title="Complaint Analytics Dashboard API",
@@ -55,6 +57,7 @@ app.add_middleware(
 _frontend_dir = Path(__file__).resolve().parents[1] / "frontend"
 if _frontend_dir.exists():
     app.mount("/app", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
+
 
 class ComplaintCreateInput(BaseModel):
     id: Optional[str] = Field(default=None, min_length=3, max_length=20, examples=["CMP-101"])
@@ -117,8 +120,10 @@ class ComplaintCreateInput(BaseModel):
                 raise ValueError("description must be at least 10 non-whitespace characters")
         return v
 
+
 class ComplaintCreate(ComplaintCreateInput):
     pass
+
 
 class ComplaintUpdate(BaseModel):
     created_date: date | None = None
@@ -181,6 +186,7 @@ class ComplaintUpdate(BaseModel):
                 raise ValueError("description must be at least 10 non-whitespace characters")
         return v
 
+
 def filtered_data(
     start_date: date | None = None,
     end_date: date | None = None,
@@ -195,6 +201,7 @@ def filtered_data(
         load_complaints(), start_date, end_date, state, district, area, pincode, category, status
     )
 
+
 @app.get("/")
 async def root():
     return {
@@ -204,13 +211,16 @@ async def root():
         "status": "online",
     }
 
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+
 @app.get("/options")
 def options() -> dict[str, list[str]]:
     return get_options(load_complaints())
+
 
 @app.get("/complaints")
 def complaints(
@@ -224,6 +234,7 @@ def complaints(
     status: str | None = Query(default=None),
 ) -> list[dict[str, object]]:
     return records(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
+
 
 @app.get("/complaints/export")
 def export_complaints(
@@ -247,12 +258,14 @@ def export_complaints(
     headers = {"Content-Disposition": "attachment; filename=complaints_export.csv"}
     return StreamingResponse(buffer, media_type="text/csv", headers=headers)
 
+
 @app.get("/complaints/{complaint_id}")
 def get_complaint(complaint_id: str) -> dict[str, object]:
     complaint = get_complaint_by_id(complaint_id)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
     return complaint
+
 
 @app.post("/complaints", status_code=status.HTTP_201_CREATED)
 def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
@@ -278,6 +291,7 @@ def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
         return insert_complaint(complaint_data)
     except DuplicateComplaintError as exc:
         raise HTTPException(status_code=409, detail="Complaint ID already exists") from exc
+
 
 @app.put("/complaints/{complaint_id}")
 def update_complaint(complaint_id: str, payload: ComplaintUpdate) -> dict[str, object]:
@@ -308,6 +322,7 @@ def update_complaint(complaint_id: str, payload: ComplaintUpdate) -> dict[str, o
     updated["closed_date"] = closed
     return update_complaint_record(complaint_id, updated)
 
+
 @app.delete("/complaints/{complaint_id}")
 def delete_complaint(complaint_id: str) -> dict[str, str]:
     existing = get_complaint_by_id(complaint_id)
@@ -315,6 +330,7 @@ def delete_complaint(complaint_id: str) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Complaint not found")
     delete_complaint_record(complaint_id)
     return {"message": "Complaint deleted successfully"}
+
 
 @app.get("/analytics/summary")
 def analytics_summary(
@@ -329,6 +345,7 @@ def analytics_summary(
 ) -> dict[str, float | int]:
     return summary_metrics(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
 
+
 @app.get("/analytics/trends")
 def analytics_trends(
     start_date: date | None = None,
@@ -342,6 +359,7 @@ def analytics_trends(
 ) -> list[dict[str, object]]:
     return monthly_trend(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
 
+
 @app.get("/analytics/area")
 def analytics_area(
     start_date: date | None = None,
@@ -354,6 +372,7 @@ def analytics_area(
     status: str | None = None,
 ) -> list[dict[str, object]]:
     return area_summary(filtered_data(start_date, end_date, state, district, area, pincode, category, status))
+
 
 @app.get("/analytics/category")
 def analytics_category(

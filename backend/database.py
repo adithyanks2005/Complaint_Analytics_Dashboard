@@ -32,7 +32,7 @@ else:
 
 # Guard so init_db only runs its expensive checks once per process
 _db_initialised = False
-_init_lock       = Lock()
+_init_lock = Lock()
 _supabase_client = None
 
 
