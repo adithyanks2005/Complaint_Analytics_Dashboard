@@ -1,0 +1,6 @@
+fastapi>=0.110.0
+pandas==2.2.3
+python-dotenv==1.0.1
+supabase==2.10.0
+twilio>=9.0.0
+requests
