@@ -24,6 +24,7 @@ from backend.analytics import (
     summary_metrics,
 )
 from backend.database import init_db
+from backend.ai_prioritizer import compute_priority
 from backend.database import (
     DuplicateComplaintError,
     delete_complaint_record,
@@ -265,6 +266,22 @@ def export_complaints(
 def get_complaint(complaint_id: str) -> dict[str, object]:
     complaint = get_complaint_by_id(complaint_id)
     if not complaint:
+    # Format dates and drop internal columns before export
+    export_df = df.copy()
+    for col in ["created_date", "closed_date"]:
+        export_df[col] = export_df[col].dt.strftime("%Y-%m-%d")
+    export_df = export_df.drop(columns=["closure_days"], errors="ignore")
+    buffer = StringIO()
+    export_df.to_csv(buffer, index=False)
+    buffer.seek(0)
+    headers = {"Content-Disposition": "attachment; filename=complaints_export.csv"}
+    return StreamingResponse(buffer, media_type="text/csv", headers=headers)
+
+
+@app.get("/complaints/{complaint_id}")
+def get_complaint(complaint_id: str) -> dict[str, object]:
+    complaint = get_complaint_by_id(complaint_id)
+    if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
     return complaint
 
@@ -272,6 +289,8 @@ def get_complaint(complaint_id: str) -> dict[str, object]:
 @app.post("/complaints", status_code=status.HTTP_201_CREATED)
 def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
     try:
+        # Determine priority using AI if not supplied
+        priority = payload.priority if payload.priority is not None else compute_priority(payload.description)
         return insert_complaint(
             {
                 "id": payload.id,
@@ -284,22 +303,6 @@ def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
                 "area": payload.area,
                 "pincode": payload.pincode,
                 "category": payload.category,
-                "priority": payload.priority,
-                "status": "Pending",
-                "description": payload.description,
-                "user_contact": payload.user_contact,
-                "image_path": payload.image_path,
-            }
-        )
-    except DuplicateComplaintError as exc:
-        raise HTTPException(status_code=409, detail="Complaint ID already exists") from exc
-    except Exception:
-        raise
-
-
-@app.put("/complaints/{complaint_id}")
-def update_complaint(complaint_id: str, payload: ComplaintUpdate) -> dict[str, object]:
-    existing = get_complaint(complaint_id)
     updated  = {**existing, **payload.model_dump(exclude_unset=True)}
 
     created = updated["created_date"]
