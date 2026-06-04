@@ -1906,12 +1906,12 @@ with main_col:
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
                 "Mobile number or email (optional)",
-                placeholder="Add contact details for follow-up",
+                placeholder="Enter mobile number or email",
                 key=f"user_contact_f_{st.session_state.form_key_f}",
             )
             new_desc = st.text_area(
                 "Description",
-                placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
+                placeholder="Describe the issue here",
                 max_chars=MAX_DESCRIPTION_LENGTH,
                 key=f"new_desc_f_{st.session_state.form_key_f}",
             )
