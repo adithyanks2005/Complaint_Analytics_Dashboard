@@ -1783,44 +1783,82 @@ with main_col:
                 import os
                 
                 google_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+                google_maps_success = False
+                
+                # Try Google Maps API first
                 if google_api_key and google_api_key != "YOUR_GOOGLE_MAPS_API_KEY_HERE":
-                    # Google Maps reverse geocoding
-                    _r = _req.get(
-                        "https://maps.googleapis.com/maps/api/geocode/json",
-                        params={
-                            "latlng": f"{_lat},{_lng}",
-                            "key": google_api_key,
-                            "result_type": "street_address|sublocality|locality|administrative_area_level_3|administrative_area_level_2|administrative_area_level_1"
-                        },
-                        timeout=10,
-                    )
-                    if _r.status_code == 200:
-                        _geo_data = _r.json()
-                        if _geo_data.get("status") == "OK" and _geo_data.get("results"):
-                            _result = _geo_data["results"][0]
-                            _components = _result.get("address_components", [])
-                            
-                            # Parse Google Maps address components
-                            _gps_state = ""
-                            _gps_district = ""
-                            _gps_muni = ""
-                            _gps_area = ""
-                            
-                            for comp in _components:
-                                types = comp.get("types", [])
-                                name = comp.get("long_name", "")
+                    try:
+                        _r = _req.get(
+                            "https://maps.googleapis.com/maps/api/geocode/json",
+                            params={
+                                "latlng": f"{_lat},{_lng}",
+                                "key": google_api_key,
+                                "language": "en"
+                            },
+                            timeout=10,
+                        )
+                        if _r.status_code == 200:
+                            _geo_data = _r.json()
+                            if _geo_data.get("status") == "OK" and _geo_data.get("results"):
+                                _result = _geo_data["results"][0]
+                                _components = _result.get("address_components", [])
                                 
-                                if "administrative_area_level_1" in types:  # State
-                                    _gps_state = name
-                                elif "administrative_area_level_2" in types:  # District
-                                    _gps_district = name
-                                elif "administrative_area_level_3" in types or "locality" in types:  # Municipality
-                                    _gps_muni = name
-                                elif "sublocality_level_1" in types or "neighborhood" in types:  # Area
-                                    _gps_area = name
-                            
-                            _gps_display = _result.get("formatted_address", "")[:70]
-                            
+                                # Parse Google Maps address components
+                                _gps_state = ""
+                                _gps_district = ""
+                                _gps_muni = ""
+                                _gps_area = ""
+                                
+                                for comp in _components:
+                                    types = comp.get("types", [])
+                                    name = comp.get("long_name", "")
+                                    
+                                    if "administrative_area_level_1" in types:  # State
+                                        _gps_state = name
+                                    elif "administrative_area_level_2" in types:  # District
+                                        _gps_district = name
+                                    elif "administrative_area_level_3" in types or "locality" in types:  # Municipality
+                                        _gps_muni = name
+                                    elif "sublocality_level_1" in types or "neighborhood" in types:  # Area
+                                        _gps_area = name
+                                
+                                _gps_display = _result.get("formatted_address", "")[:70]
+                                
+                                if _gps_state:
+                                    st.session_state[f"new_state_f_{location_key}"] = _gps_state
+                                if _gps_district:
+                                    st.session_state[f"new_district_f_{location_key}"] = _gps_district
+                                if _gps_muni:
+                                    st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
+                                if _gps_area:
+                                    st.session_state[f"new_area_f_{location_key}"] = _gps_area
+                                
+                                st.session_state[gps_key] = _gps_display
+                                google_maps_success = True
+                            else:
+                                print(f"Google Maps API Error: {_geo_data.get('status')} - {_geo_data.get('error_message', 'Unknown error')}")
+                        else:
+                            print(f"Google Maps HTTP Error: {_r.status_code}")
+                    except Exception as e:
+                        print(f"Google Maps Exception: {str(e)}")
+                
+                # Fallback to Nominatim if Google Maps failed or no API key
+                if not google_maps_success:
+                    try:
+                        _r = _req.get(
+                            "https://nominatim.openstreetmap.org/reverse",
+                            params={"lat": _lat, "lon": _lng, "format": "json"},
+                            headers={"User-Agent": "ComplaintDashboard/1.0"},
+                            timeout=8,
+                        )
+                        if _r.status_code == 200:
+                            _geo = _r.json()
+                            _addr = _geo.get("address", {})
+                            _gps_state    = _addr.get("state", "")
+                            _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
+                            _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("municipality") or _addr.get("village") or "")
+                            _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
+                            _gps_display  = _geo.get("display_name", "")[:70]
                             if _gps_state:
                                 st.session_state[f"new_state_f_{location_key}"] = _gps_state
                             if _gps_district:
@@ -1829,45 +1867,23 @@ with main_col:
                                 st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
                             if _gps_area:
                                 st.session_state[f"new_area_f_{location_key}"] = _gps_area
-                            
                             st.session_state[gps_key] = _gps_display
-                else:
-                    # Fallback to Nominatim if no Google API key
-                    _r = _req.get(
-                        "https://nominatim.openstreetmap.org/reverse",
-                        params={"lat": _lat, "lon": _lng, "format": "json"},
-                        headers={"User-Agent": "ComplaintDashboard/1.0"},
-                        timeout=6,
-                    )
-                    if _r.status_code == 200:
-                        _geo = _r.json()
-                        _addr = _geo.get("address", {})
-                        _gps_state    = _addr.get("state", "")
-                        _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
-                        _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("municipality") or _addr.get("village") or "")
-                        _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
-                        _gps_display  = _geo.get("display_name", "")[:70]
-                        if _gps_state:
-                            st.session_state[f"new_state_f_{location_key}"] = _gps_state
-                        if _gps_district:
-                            st.session_state[f"new_district_f_{location_key}"] = _gps_district
-                        if _gps_muni:
-                            st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
-                        if _gps_area:
-                            st.session_state[f"new_area_f_{location_key}"] = _gps_area
-                        st.session_state[gps_key] = _gps_display
+                        else:
+                            print(f"Nominatim HTTP Error: {_r.status_code}")
+                    except Exception as e:
+                        print(f"Nominatim Exception: {str(e)}")
                         
                 st.query_params.clear()
                 st.rerun()
             except Exception as _e:
+                print(f"GPS Processing Error: {str(_e)}")
                 st.query_params.clear()
 
         # ── GPS button rendered as self-contained iframe component ─────────────
         # The iframe calls navigator.geolocation then navigates parent window
         # with ?gps_lat=...&gps_lng=... which Streamlit picks up on rerun.
-        # Uses Google Maps for reverse geocoding when API key is available.
         _gps_done = bool(st.session_state.get(gps_key))
-        _btn_label = "✅ Location Detected" if _gps_done else "🗺️ Use My Location (Google Maps)"
+        _btn_label = "✅ Location Detected" if _gps_done else "📍 Use My Location"
         _btn_color = "#10b981" if _gps_done else "#6366f1"
 
         components.html(f"""
@@ -1885,53 +1901,72 @@ with main_col:
   }}
   #gps-btn:disabled {{ opacity:0.6; cursor:not-allowed; }}
   #status {{ font-size:0.75rem; color:#94a3b8; margin-top:5px; min-height:18px; }}
+  #debug {{ font-size:0.65rem; color:#64748b; margin-top:3px; font-style: italic; }}
 </style>
 </head>
 <body>
 <button id="gps-btn" {"disabled" if _gps_done else ""}>{_btn_label}</button>
 <div id="status">{st.session_state.get(gps_key) or ""}</div>
+<div id="debug">Click button to detect location</div>
 <script>
 document.getElementById('gps-btn').addEventListener('click', function() {{
   var btn = this;
+  var status = document.getElementById('status');
+  var debug = document.getElementById('debug');
+  
   btn.textContent = '⏳ Detecting location…';
   btn.disabled = true;
-  document.getElementById('status').textContent = 'Requesting GPS permission…';
+  status.textContent = 'Starting GPS detection...';
+  debug.textContent = 'Checking geolocation support...';
 
   if (!navigator.geolocation) {{
-    document.getElementById('status').textContent = 'Geolocation not supported by this browser.';
+    status.textContent = 'Geolocation not supported by this browser.';
+    debug.textContent = 'Browser does not support geolocation';
     btn.disabled = false;
     btn.textContent = '📍 Use My Location';
     return;
   }}
+  
+  debug.textContent = 'Geolocation supported, requesting permission...';
+  status.textContent = 'Requesting GPS permission…';
 
   navigator.geolocation.getCurrentPosition(
     function(pos) {{
       var lat = pos.coords.latitude.toFixed(6);
       var lng = pos.coords.longitude.toFixed(6);
-      document.getElementById('status').textContent = 'Got location, filling fields…';
-      // Navigate parent window to same URL with GPS params
-      var url = new URL(window.parent.location.href);
-      url.searchParams.set('gps_lat', lat);
-      url.searchParams.set('gps_lng', lng);
-      window.parent.location.href = url.toString();
+      status.textContent = 'Got coordinates: ' + lat + ', ' + lng;
+      debug.textContent = 'Redirecting to process location...';
+      
+      // Add delay to show message
+      setTimeout(function() {{
+        var url = new URL(window.parent.location.href);
+        url.searchParams.set('gps_lat', lat);
+        url.searchParams.set('gps_lng', lng);
+        window.parent.location.href = url.toString();
+      }}, 500);
     }},
     function(err) {{
       btn.disabled = false;
       btn.textContent = '📍 Use My Location';
       var msgs = {{
-        1: 'Permission denied. Please allow location access in your browser.',
-        2: 'Position unavailable. Try again.',
-        3: 'Timed out. Try again.'
+        1: 'Permission denied. Please allow location access.',
+        2: 'Position unavailable. Check GPS/Wi-Fi.',
+        3: 'Timed out. Try again or check network.'
       }};
-      document.getElementById('status').textContent = msgs[err.code] || 'Error: ' + err.message;
+      status.textContent = msgs[err.code] || 'Error: ' + err.message;
+      debug.textContent = 'Error code: ' + err.code + ' - ' + err.message;
     }},
-    {{ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }}
+    {{ 
+      enableHighAccuracy: true, 
+      timeout: 15000, 
+      maximumAge: 0 
+    }}
   );
 }});
 </script>
 </body>
 </html>
-""", height=80)
+""", height=90)
 
         # ── Only Complaint ID row (no pincode) ────────────────────────────────────
         new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
@@ -1939,6 +1974,64 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
         # ── Show location detection status ────────────────────────────────────────
         if st.session_state.get(gps_key):
             st.caption(f"✓ GPS location detected: {st.session_state[gps_key]} — edit fields below if needed")
+        
+        # ── Debug section for testing API ─────────────────────────────────────────
+        with st.expander("🔧 Debug Location Detection", expanded=False):
+            st.write("**Test location detection manually:**")
+            test_col1, test_col2 = st.columns(2)
+            
+            test_lat = test_col1.number_input("Test Latitude", value=13.0827, format="%.6f", key="test_lat")
+            test_lng = test_col2.number_input("Test Longitude", value=80.2707, format="%.6f", key="test_lng")
+            
+            if st.button("🧪 Test Location API", key="test_location"):
+                import requests as _req
+                import os
+                
+                with st.spinner("Testing location APIs..."):
+                    google_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+                    
+                    # Test Google Maps API
+                    st.write("**Google Maps API Test:**")
+                    if google_api_key:
+                        try:
+                            _r = _req.get(
+                                "https://maps.googleapis.com/maps/api/geocode/json",
+                                params={
+                                    "latlng": f"{test_lat},{test_lng}",
+                                    "key": google_api_key,
+                                    "language": "en"
+                                },
+                                timeout=10,
+                            )
+                            if _r.status_code == 200:
+                                _data = _r.json()
+                                if _data.get("status") == "OK":
+                                    st.success(f"✅ Google Maps API working: {_data['results'][0]['formatted_address']}")
+                                else:
+                                    st.error(f"❌ Google Maps API error: {_data.get('status')} - {_data.get('error_message', 'Unknown')}")
+                            else:
+                                st.error(f"❌ HTTP Error: {_r.status_code}")
+                        except Exception as e:
+                            st.error(f"❌ Exception: {str(e)}")
+                    else:
+                        st.warning("⚠️ No Google Maps API key found")
+                    
+                    # Test Nominatim API
+                    st.write("**Nominatim API Test:**")
+                    try:
+                        _r = _req.get(
+                            "https://nominatim.openstreetmap.org/reverse",
+                            params={"lat": test_lat, "lon": test_lng, "format": "json"},
+                            headers={"User-Agent": "ComplaintDashboard/1.0"},
+                            timeout=8,
+                        )
+                        if _r.status_code == 200:
+                            _data = _r.json()
+                            st.success(f"✅ Nominatim API working: {_data.get('display_name', 'N/A')}")
+                        else:
+                            st.error(f"❌ Nominatim HTTP Error: {_r.status_code}")
+                    except Exception as e:
+                        st.error(f"❌ Nominatim Exception: {str(e)}")
 
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         state_col, district_col = st.columns([1.1, 1.1])
