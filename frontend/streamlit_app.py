@@ -1073,7 +1073,14 @@ def build_cascading_location_options(
 
 def select_valid_option(label: str, options: list[str], key: str, container=st) -> str:
     if key in st.session_state and st.session_state[key] not in options:
-        st.session_state[key] = options[0]
+        # Try to find a case-insensitive match first
+        current_val = st.session_state[key]
+        match = next((o for o in options if o.lower() == current_val.lower()), None)
+        if match:
+            st.session_state[key] = match
+        else:
+            # Add the auto-filled value to options so it's selectable
+            options = [current_val, *options]
     return container.selectbox(label, options, key=key)
 
 
@@ -1311,7 +1318,7 @@ total     = len(df)
 closed_df = df[df["status"] == "Closed"]
 open_cnt  = len(df[df["status"] != "Closed"])
 raw_avg   = closed_df["closure_days"].mean() if not closed_df.empty else 0.0
-avg_days  = float(raw_avg) if raw_avg == raw_avg else 0.0
+avg_days  = float(raw_avg) if not pd.isna(raw_avg) else 0.0
 rate      = round((len(closed_df) / total) * 100, 2) if total else 0.0
 rate_w    = min(int(rate), 100)
 
@@ -1689,9 +1696,9 @@ with main_col:
             if location_text:
                 st.caption(f"Location: {location_text}")
             if receipt.get("image_path"):
-                image_file = PROJECT_ROOT / str(receipt["image_path"])
-                if image_file.exists():
-                    st.image(str(image_file), caption="Attached image", use_container_width=True)
+                receipt_image_path = PROJECT_ROOT / str(receipt["image_path"])
+                if receipt_image_path.exists():
+                    st.image(str(receipt_image_path), caption="Attached image", use_container_width=True)
             st.download_button(
                 "Download Receipt",
                 data=build_receipt(receipt).encode("utf-8"),
@@ -1724,14 +1731,28 @@ with main_col:
         if new_pincode and is_valid_pincode(new_pincode):
             auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
             if auto_fill_result:
-                st.session_state[f"new_state_f_{location_key}"] = auto_fill_result.get("state", "")
-                st.session_state[f"new_district_f_{location_key}"] = auto_fill_result.get("district", "")
+                # Only update session state if the value is in the available options to avoid resetting
+                _af_state = auto_fill_result.get("state", "")
+                _af_district = auto_fill_result.get("district", "")
+                _af_municipality = auto_fill_result.get("municipality", "")
+                _af_village = auto_fill_result.get("village", "")
+                if _af_state:
+                    st.session_state[f"new_state_f_{location_key}"] = _af_state
+                if _af_district:
+                    st.session_state[f"new_district_f_{location_key}"] = _af_district
+                if _af_municipality:
+                    st.session_state[f"new_municipality_f_{location_key}"] = _af_municipality
+                if _af_village:
+                    st.session_state[f"new_village_f_{location_key}"] = _af_village
                 location_auto_filled = True
-        
+
+        if location_auto_filled:
+            st.success("Location auto-filled from pincode")
+
+        state_options_form = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         state_col, district_col = st.columns([1.1, 1.1])
-        state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
-        new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
-        
+        new_state = select_valid_option("State", state_options_form, f"new_state_f_{location_key}", state_col)
+
         district_options = build_cascading_location_options(
             all_df,
             "district",
@@ -1740,15 +1761,28 @@ with main_col:
         )
         new_district = select_valid_option("District", district_options, f"new_district_f_{location_key}", district_col)
 
+        muni_col, village_col = st.columns([1.1, 1.1])
+        municipality_options = build_form_location_options(
+            build_location_options(all_df, "municipality")
+        )
+        new_municipality = select_valid_option(
+            "Municipality (optional)", municipality_options,
+            f"new_municipality_f_{location_key}", muni_col
+        )
+        village_options = build_form_location_options(
+            build_location_options(all_df, "village")
+        )
+        new_village = select_valid_option(
+            "Village / Locality (optional)", village_options,
+            f"new_village_f_{location_key}", village_col
+        )
+
         new_area = st.text_input(
             "Specific Area / Locality (e.g., Street name, Ward, Landmark)",
             placeholder="Enter the specific location of the issue",
             max_chars=80,
             key=f"new_area_f_{location_key}"
         )
-        new_municipality = "Not provided"
-        new_village = "Not provided"
-
         camera_file = None
         uploaded_file = None
         photo_verified = False
