@@ -1802,6 +1802,15 @@ with main_col:
                 st.success("Image ready.")
             photo_verified = True
 
+        # Date picker outside the form so it renders as a proper calendar picker
+        new_date = st.date_input(
+            "Complaint Date",
+            value=date.today(),
+            max_value=date.today(),
+            key=f"new_date_f_{st.session_state.form_key_f}",
+            format="DD/MM/YYYY",
+        )
+
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
             user_contact = st.text_input(
@@ -1809,14 +1818,6 @@ with main_col:
                 placeholder="Add contact details for follow-up",
                 key=f"user_contact_f_{st.session_state.form_key_f}",
             )
-            new_date = st.date_input(
-                "Date",
-                value=date.today(),
-                max_value=date.today(),
-                key=f"new_date_f_{st.session_state.form_key_f}",
-                format="DD/MM/YYYY",
-            )
-            
             new_desc = st.text_area(
                 "Description",
                 placeholder="Describe the issue, location landmark, and any urgency. Min 10 characters.",
