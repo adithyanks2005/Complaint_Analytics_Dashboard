@@ -7,8 +7,6 @@ from pathlib import Path
 import re
 from typing import Literal, Optional
 
-import pandas as pd
-
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -256,10 +254,8 @@ def export_complaints(
     export_df = df.copy()
     for col in ["created_date", "closed_date"]:
         if col in export_df.columns:
-            # Use apply to handle NaT safely — dt.strftime converts NaT to "NaT" string
-            export_df[col] = export_df[col].apply(
-                lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else ""
-            )
+            export_df[col] = export_df[col].dt.strftime("%Y-%m-%d")
+            export_df[col] = export_df[col].where(export_df[col].notna(), None)
     export_df = export_df.drop(columns=["closure_days"], errors="ignore")
     buffer = StringIO()
     export_df.to_csv(buffer, index=False)

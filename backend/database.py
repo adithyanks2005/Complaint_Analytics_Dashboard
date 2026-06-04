@@ -218,7 +218,7 @@ def init_db() -> None:
             count = conn.execute("SELECT COUNT(*) FROM complaints").fetchone()[0]
             if count == 0:
                 seed_complaints(conn)
-        _db_initialised = True  # set AFTER successful SQLite init
+        _db_initialised = True
 
 def migrate_schema(connection: sqlite3.Connection) -> None:
     """Add missing optional columns and rebuild the table if critical columns changed.

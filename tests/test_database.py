@@ -25,11 +25,6 @@ def _use_temp_db(tmp_path, monkeypatch):
     tmp_db = tmp_path / "test_complaints.db"
     monkeypatch.setattr(db, "DB_PATH", tmp_db)
     monkeypatch.setattr(db, "_db_initialised", False)
-    monkeypatch.setattr(db, "_supabase_failed", False)
-    monkeypatch.setattr(db, "_supabase_client", None)
-    # Force SQLite for all tests unless the individual test overrides this
-    monkeypatch.setattr(db, "SUPABASE_URL", None)
-    monkeypatch.setattr(db, "SUPABASE_KEY", None)
     db.init_db()
     yield
     monkeypatch.setattr(db, "_db_initialised", False)
@@ -122,7 +117,6 @@ def test_generate_next_id_supabase_reads_remote_ids(monkeypatch):
 
     monkeypatch.setattr(db, "SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setattr(db, "SUPABASE_KEY", "test-key")
-    monkeypatch.setattr(db, "_supabase_failed", False)
     monkeypatch.setattr(db, "get_supabase_client", lambda: _FakeClient())
 
     assert db.generate_next_id_supabase() == "CMP-121"

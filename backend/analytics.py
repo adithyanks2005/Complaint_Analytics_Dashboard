@@ -64,9 +64,9 @@ def summary_metrics(df: pd.DataFrame) -> dict[str, float | int]:
     total     = int(len(df))
     closed_df = df[df["status"] == "Closed"]
     open_df   = df[df["status"] != "Closed"]
-    # Use pd.isna() to check for NaN values
+    # nanmean returns nan when all values are NaN; guard with explicit check
     raw_avg      = closed_df["closure_days"].mean() if not closed_df.empty else 0.0
-    avg_closure  = float(raw_avg) if not pd.isna(raw_avg) else 0.0
+    avg_closure  = float(raw_avg) if raw_avg == raw_avg else 0.0   # nan != nan
     closure_rate = round((len(closed_df) / total) * 100, 2) if total else 0.0
     return {
         "total_complaints":     total,
