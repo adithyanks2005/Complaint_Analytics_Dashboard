@@ -1617,8 +1617,6 @@ with main_col:
                 st.error("Enter a valid email ID or mobile number")
             elif final_pincode and not is_valid_pincode(final_pincode):
                 st.error("Enter a valid 6-digit Indian PIN code")
-            elif new_date > date.today():
-                st.error("Complaint date cannot be in the future")
             elif image_mode != "No image" and not image_file:
                 st.error("Please attach an image (take a photo or upload a file) before submitting")
             elif image_file and len(image_file.getvalue()) > MAX_IMAGE_BYTES:
@@ -1802,13 +1800,14 @@ with main_col:
                 st.success("Image ready.")
             photo_verified = True
 
-        # Date picker outside the form so it renders as a proper calendar picker
-        new_date = st.date_input(
-            "Complaint Date",
-            value=date.today(),
-            max_value=date.today(),
-            key=f"new_date_f_{st.session_state.form_key_f}",
-            format="DD/MM/YYYY",
+        # Date is always today — read-only, synced to device, not editable
+        new_date = date.today()
+        st.markdown(
+            f"**Complaint Date** &nbsp; "
+            f"<span style='background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);"
+            f"border-radius:10px;padding:6px 16px;font-size:0.95rem;color:#f1f5f9;font-weight:600;'>"
+            f"📅 {new_date.strftime('%d %b %Y')}</span>",
+            unsafe_allow_html=True,
         )
 
         with st.form("new_complaint", clear_on_submit=False):
