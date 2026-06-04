@@ -34,6 +34,12 @@ from backend.database import (
     using_supabase,
 )
 from backend.ai_prioritizer import compute_priority
+from backend.analytics import (
+    summary_metrics,
+    monthly_trend as get_monthly_trend,
+    area_summary,
+    category_summary as get_category_summary,
+)
 
 # ── Notification helper ────────────────────────────────────────────────────────
 try:
@@ -1088,20 +1094,6 @@ def get_next_complaint_id() -> str:
     return generate_next_id_supabase() if using_supabase() else generate_next_id()
 
 
-def infer_priority(description: str, category: str) -> str:
-    text = f"{category} {description}".lower()
-    high_terms = [
-        "urgent", "emergency", "danger", "hazard", "sewage", "overflow",
-        "contamination", "accident", "fire", "flood", "blocked", "leak",
-    ]
-    medium_terms = ["broken", "delay", "damaged", "repair", "outage", "garbage", "drainage"]
-    if any(term in text for term in high_terms):
-        return "High"
-    if any(term in text for term in medium_terms):
-        return "Medium"
-    return "Low"
-
-
 def build_receipt(complaint: dict[str, object]) -> str:
     fields = [
         ("Complaint ID", complaint["id"]),
@@ -1396,31 +1388,23 @@ df = filter_df(
     af["status"],
 )
 
-# ── Analytics ─────────────────────────────────────────────────────────────────
-total     = len(df)
+# ── Analytics via backend module ───────────────────────────────────────────────
+_metrics  = summary_metrics(df)
+total     = _metrics["total_complaints"]
 closed_df = df[df["status"] == "Closed"]
-open_cnt  = len(df[df["status"] != "Closed"])
-raw_avg   = closed_df["closure_days"].mean() if not closed_df.empty else 0.0
-avg_days  = float(raw_avg) if raw_avg == raw_avg else 0.0
-rate      = round((len(closed_df) / total) * 100, 2) if total else 0.0
+open_cnt  = _metrics["open_or_pending"]
+avg_days  = _metrics["average_closure_days"]
+rate      = _metrics["closure_rate_percent"]
 rate_w    = min(int(rate), 100)
 
-trend_df = (
-    df.assign(month=df["created_date"].dt.to_period("M").astype(str))
-    .groupby("month").size().reset_index(name="complaints").sort_values("month")
-) if not df.empty else pd.DataFrame()
+trend_data = get_monthly_trend(df) if not df.empty else []
+trend_df   = pd.DataFrame(trend_data) if trend_data else pd.DataFrame()
 
-area_df = (
-    df[~df["area"].isin(GENERIC_AREA_LABELS)]
-    .groupby("area")
-    .agg(complaints=("id","count"), avg_closure_days=("closure_days","mean"))
-    .reset_index().sort_values("complaints", ascending=False)
-) if not df.empty else pd.DataFrame()
+area_data = area_summary(df[~df["area"].isin(GENERIC_AREA_LABELS)]) if not df.empty else []
+area_df   = pd.DataFrame(area_data) if area_data else pd.DataFrame()
 
-category_df = (
-    df.groupby("category").size().reset_index(name="complaints")
-    .sort_values("complaints", ascending=False)
-) if not df.empty else pd.DataFrame()
+cat_data     = get_category_summary(df) if not df.empty else []
+category_df  = pd.DataFrame(cat_data) if cat_data else pd.DataFrame()
 
 # ── Main Layout ────────────────────────────────────────────────────────────────
 main_col = st.container()
@@ -2112,7 +2096,6 @@ if st.session_state.is_admin:
                 u1, u2, u3 = st.columns(3)
                 upd_status   = u1.selectbox("Status", ["Pending", "In Progress", "Closed"],
                                             index=["Pending", "In Progress", "Closed"].index(row["status"]) if row["status"] in ["Pending", "In Progress", "Closed"] else 0, key="adm_status")
-                upd_area     = u2.selectbox("Area", admin_area_options, index=admin_area_options.index(row["area"]) if row["area"] in admin_area_options else 0, key="adm_area")
                 upd_priority = u3.selectbox("Priority", ["Low", "Medium", "High"],
                                             index=["Low", "Medium", "High"].index(row["priority"]) if pd.notna(row["priority"]) and row["priority"] in ["Low", "Medium", "High"] else 1, key="adm_pri")
                 upd_category = st.selectbox("Category", categories, index=categories.index(row["category"]) if row["category"] in categories else 0, key="adm_cat")
@@ -2122,7 +2105,7 @@ if st.session_state.is_admin:
                 upd_municipality = loc3.text_input("Municipality", value=str(row.get("municipality") or ""), key="adm_municipality")
                 loc4, loc5 = st.columns(2)
                 upd_village = loc4.text_input("Village", value=str(row.get("village") or ""), key="adm_village")
-                upd_area = loc5.text_input("Area", value=str(row.get("area") or ""), key="adm_area")
+                upd_area = loc5.text_input("Area", value=str(row.get("area") or ""), key="adm_area_text")
                 upd_closed   = st.date_input("Closed Date", value=date.today(), key="adm_closed", format="DD/MM/YYYY") if upd_status == "Closed" else None
                 upd_desc     = st.text_area("Description", value=str(row["description"]) if pd.notna(row["description"]) else "", key="adm_desc")
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):

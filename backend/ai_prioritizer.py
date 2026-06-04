@@ -2,10 +2,18 @@ from typing import Literal
 
 
 def _mock_priority(text: str) -> Literal["Low", "Medium", "High"]:
-    """Simple heuristic priority based on keywords."""
-    low_keywords = ["minor", "suggestion", "question"]
-    high_keywords = ["urgent", "critical", "severe", "pain", "breakdown"]
+    """Keyword-based priority heuristic for complaint text."""
     text_lower = text.lower()
+    high_keywords = [
+        "urgent", "critical", "severe", "emergency", "danger", "hazard",
+        "flood", "flooding", "accident", "contamination", "contaminated",
+        "sewage", "overflow", "burst", "collapse", "collapsed", "cave-in",
+        "blocked drain", "no water", "water cut", "pipeline leak",
+    ]
+    low_keywords = [
+        "minor", "suggestion", "question", "flickering", "small",
+        "pothole", "crack", "bins", "not collected", "streetlight",
+    ]
     if any(k in text_lower for k in high_keywords):
         return "High"
     if any(k in text_lower for k in low_keywords):
