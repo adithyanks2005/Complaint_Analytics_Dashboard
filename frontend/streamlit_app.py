@@ -1760,7 +1760,6 @@ with main_col:
         )
 
         if image_mode == "Take photo":
-            st.info("Point your camera at the issue and click **Take Photo**. To retake, click the camera again.")
             try:
                 from streamlit_back_camera_input import back_camera_input
                 camera_file = back_camera_input(
@@ -1768,13 +1767,13 @@ with main_col:
                 )
             except Exception:
                 camera_file = st.camera_input(
-                    "Take a photo of the issue",
+                    "Take Photo",
                     key=f"new_camera_f_{st.session_state.form_key_f}",
                 )
             if camera_file:
                 st.image(camera_file, caption="Photo attached — retake anytime before submitting", use_container_width=True)
-                st.success("Photo ready. Fill in the details below and submit.")
-            photo_verified = True  # no manual verification step needed
+                st.success("Photo ready.")
+            photo_verified = True
 
         elif image_mode == "Upload file":
             uploaded_file = st.file_uploader(
@@ -1785,8 +1784,8 @@ with main_col:
             )
             if uploaded_file:
                 st.image(uploaded_file, caption=f"Attached: {uploaded_file.name}", use_container_width=True)
-                st.success("Image ready. Fill in the details below and submit.")
-            photo_verified = True  # no manual verification step needed
+                st.success("Image ready.")
+            photo_verified = True
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
