@@ -2047,10 +2047,19 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
         # Date is always today — read-only, synced to device, not editable
         new_date = date.today()
         st.markdown(
-            f"**Complaint Date** &nbsp; "
-            f"<span style='background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);"
-            f"border-radius:10px;padding:6px 16px;font-size:0.95rem;color:#f1f5f9;font-weight:600;'>"
-            f"📅 {new_date.strftime('%d %b %Y')}</span>",
+            f"""<div style='display:flex;align-items:center;gap:10px;margin:8px 0 16px 0;'>
+  <span style='font-size:0.82rem;font-weight:600;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;'>Complaint Date</span>
+  <span style='display:inline-flex;align-items:center;gap:8px;
+    background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.12));
+    border:1px solid rgba(99,102,241,0.35);border-radius:10px;
+    padding:7px 16px;font-size:0.92rem;color:#c4b5fd;font-weight:700;
+    box-shadow:0 2px 8px rgba(99,102,241,0.15);'>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    {new_date.strftime('%d %b %Y')}
+  </span>
+</div>""",
             unsafe_allow_html=True,
         )
 
