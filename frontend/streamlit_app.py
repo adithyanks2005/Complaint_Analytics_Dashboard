@@ -1167,8 +1167,14 @@ def build_cascading_location_options(
 
 
 def select_valid_option(label: str, options: list[str], key: str, container=st) -> str:
+    # If the GPS-filled value isn't in the built options list, inject it so it
+    # isn't silently reset back to "Not provided".
     if key in st.session_state and st.session_state[key] not in options:
-        st.session_state[key] = options[0]
+        gps_val = st.session_state[key]
+        if gps_val and gps_val != "Not provided":
+            options = [options[0], gps_val, *options[1:]]
+        else:
+            st.session_state[key] = options[0]
     return container.selectbox(label, options, key=key)
 
 
@@ -1802,7 +1808,7 @@ with main_col:
 
         # ── Handle GPS result passed back via query param ───────────────────────
         _qp = st.query_params
-        if "gps_lat" in _qp and "gps_lng" in _qp and not st.session_state[gps_key]:
+        if "gps_lat" in _qp and "gps_lng" in _qp:
             try:
                 _lat = float(_qp["gps_lat"])
                 _lng = float(_qp["gps_lng"])
@@ -1883,9 +1889,14 @@ with main_col:
                         pass
 
                 st.query_params.clear()
+                # If nothing was resolved, mark as attempted so we don't loop
+                if not st.session_state.get(gps_key):
+                    st.session_state[gps_key] = "Location detected (address lookup unavailable)"
                 st.rerun()
             except Exception:
                 st.query_params.clear()
+                st.session_state[gps_key] = "Location detected"
+                st.rerun()
 
         # ── GPS button ─────────────────────────────────────────────────────────
         _gps_done = bool(st.session_state.get(gps_key))
