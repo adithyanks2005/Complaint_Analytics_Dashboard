@@ -1811,104 +1811,129 @@ with main_col:
         location_key = st.session_state.form_key_f
         st.markdown("#### Location")
 
-        # ── GPS: inject browser geolocation widget ─────────────────────────────
-        # The JS posts lat/lng back via Streamlit's query-param bridge.
-        # We store it in session_state["gps_result_<key>"] so it survives reruns.
+        # ── GPS state ──────────────────────────────────────────────────────────
         gps_key = f"gps_result_{location_key}"
         if gps_key not in st.session_state:
             st.session_state[gps_key] = None
 
-        # Read any incoming GPS result from query params (set by JS below)
+        # ── Handle GPS result passed back via query param ───────────────────────
         _qp = st.query_params
-        if "gps_lat" in _qp and "gps_lng" in _qp:
+        if "gps_lat" in _qp and "gps_lng" in _qp and not st.session_state[gps_key]:
             try:
                 _lat = float(_qp["gps_lat"])
                 _lng = float(_qp["gps_lng"])
-                if st.session_state[gps_key] != (_lat, _lng):
-                    st.session_state[gps_key] = (_lat, _lng)
-                    # Reverse-geocode with Nominatim (free, no API key)
-                    import requests as _req
-                    _r = _req.get(
-                        "https://nominatim.openstreetmap.org/reverse",
-                        params={"lat": _lat, "lon": _lng, "format": "json"},
-                        headers={"User-Agent": "ComplaintDashboard/1.0"},
-                        timeout=5,
-                    )
-                    if _r.status_code == 200:
-                        _geo = _r.json()
-                        _addr = _geo.get("address", {})
-                        _gps_state    = _addr.get("state", "")
-                        _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
-                        _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("village") or _addr.get("municipality") or "")
-                        _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
-                        if _gps_state:
-                            st.session_state[f"new_state_f_{location_key}"] = _gps_state
-                        if _gps_district:
-                            st.session_state[f"new_district_f_{location_key}"] = _gps_district
-                        if _gps_muni:
-                            st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
-                        if _gps_area:
-                            st.session_state[f"new_area_f_{location_key}"] = _gps_area
-                        # NOTE: pincode field is NOT touched — user owns it
-                        st.session_state[f"gps_label_{location_key}"] = f"📍 {_geo.get('display_name','Location detected')[:60]}…"
-            except Exception:
-                pass
-            # clear params so it doesn't re-trigger on next rerun
-            st.query_params.clear()
+                import requests as _req
+                _r = _req.get(
+                    "https://nominatim.openstreetmap.org/reverse",
+                    params={"lat": _lat, "lon": _lng, "format": "json"},
+                    headers={"User-Agent": "ComplaintDashboard/1.0"},
+                    timeout=6,
+                )
+                if _r.status_code == 200:
+                    _geo = _r.json()
+                    _addr = _geo.get("address", {})
+                    _gps_state    = _addr.get("state", "")
+                    _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
+                    _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("municipality") or _addr.get("village") or "")
+                    _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
+                    _gps_display  = _geo.get("display_name", "")[:70]
+                    if _gps_state:
+                        st.session_state[f"new_state_f_{location_key}"] = _gps_state
+                    if _gps_district:
+                        st.session_state[f"new_district_f_{location_key}"] = _gps_district
+                    if _gps_muni:
+                        st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
+                    if _gps_area:
+                        st.session_state[f"new_area_f_{location_key}"] = _gps_area
+                    # pincode is NOT written — user owns that field
+                    st.session_state[gps_key] = _gps_display
+                st.query_params.clear()
+                st.rerun()
+            except Exception as _e:
+                st.query_params.clear()
 
-        # GPS button — injects JS that requests browser location then reloads with params
+        # ── GPS button rendered as self-contained iframe component ─────────────
+        # The iframe calls navigator.geolocation then navigates parent window
+        # with ?gps_lat=...&gps_lng=... which Streamlit picks up on rerun.
+        _gps_done = bool(st.session_state.get(gps_key))
+        _btn_label = "✅ Location Detected" if _gps_done else "📍 Use My Location"
+        _btn_color = "#10b981" if _gps_done else "#6366f1"
+
         components.html(f"""
-<script>
-(function() {{
-  var btn = window.parent.document.getElementById('gps-btn-{location_key}');
-  if (btn && !btn._bound) {{
-    btn._bound = true;
-    btn.addEventListener('click', function() {{
-      btn.textContent = '⏳ Detecting…';
-      btn.disabled = true;
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {{
-          var url = new URL(window.parent.location.href);
-          url.searchParams.set('gps_lat', pos.coords.latitude.toFixed(6));
-          url.searchParams.set('gps_lng', pos.coords.longitude.toFixed(6));
-          window.parent.location.href = url.toString();
-        }},
-        function(err) {{
-          btn.textContent = '📍 Use My Location';
-          btn.disabled = false;
-          alert('Location access denied. Please allow location in your browser.');
-        }},
-        {{enableHighAccuracy: true, timeout: 10000}}
-      );
-    }});
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body {{ margin:0; padding:0; background:transparent; font-family:'Outfit',sans-serif; }}
+  #gps-btn {{
+    width:100%; padding:11px 14px;
+    background: linear-gradient(135deg, {_btn_color}, {_btn_color}dd);
+    color: white; border: none; border-radius: 12px;
+    font-weight: 700; font-size: 0.92rem; cursor: pointer;
+    transition: opacity 0.2s;
   }}
-}})();
+  #gps-btn:disabled {{ opacity:0.6; cursor:not-allowed; }}
+  #status {{ font-size:0.75rem; color:#94a3b8; margin-top:5px; min-height:18px; }}
+</style>
+</head>
+<body>
+<button id="gps-btn" {"disabled" if _gps_done else ""}>{_btn_label}</button>
+<div id="status">{st.session_state.get(gps_key) or ""}</div>
+<script>
+document.getElementById('gps-btn').addEventListener('click', function() {{
+  var btn = this;
+  btn.textContent = '⏳ Detecting location…';
+  btn.disabled = true;
+  document.getElementById('status').textContent = 'Requesting GPS permission…';
+
+  if (!navigator.geolocation) {{
+    document.getElementById('status').textContent = 'Geolocation not supported by this browser.';
+    btn.disabled = false;
+    btn.textContent = '📍 Use My Location';
+    return;
+  }}
+
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {{
+      var lat = pos.coords.latitude.toFixed(6);
+      var lng = pos.coords.longitude.toFixed(6);
+      document.getElementById('status').textContent = 'Got location, filling fields…';
+      // Navigate parent window to same URL with GPS params
+      var url = new URL(window.parent.location.href);
+      url.searchParams.set('gps_lat', lat);
+      url.searchParams.set('gps_lng', lng);
+      window.parent.location.href = url.toString();
+    }},
+    function(err) {{
+      btn.disabled = false;
+      btn.textContent = '📍 Use My Location';
+      var msgs = {{
+        1: 'Permission denied. Please allow location access in your browser.',
+        2: 'Position unavailable. Try again.',
+        3: 'Timed out. Try again.'
+      }};
+      document.getElementById('status').textContent = msgs[err.code] || 'Error: ' + err.message;
+    }},
+    {{ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }}
+  );
+}});
 </script>
-""", height=0)
+</body>
+</html>
+""", height=80)
 
-        _gps_label = st.session_state.get(f"gps_label_{location_key}", "")
-        _gps_col, _pin_col = st.columns([1, 1])
-        _gps_col.markdown(
-            f'<button id="gps-btn-{location_key}" '
-            f'style="width:100%;padding:10px 14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);'
-            f'color:white;border:none;border-radius:12px;font-weight:600;font-size:0.9rem;cursor:pointer;">'
-            f'📍 Use My Location</button>'
-            + (f'<div style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">{_gps_label}</div>' if _gps_label else ""),
-            unsafe_allow_html=True,
-        )
-
-        new_id_col, _ = st.columns([1, 1])
-        new_id = new_id_col.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
-
-        new_pincode = _pin_col.text_input(
+        # ── ID + Pincode row ───────────────────────────────────────────────────
+        id_col, pin_col = st.columns([1, 1])
+        new_id = id_col.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
+        new_pincode = pin_col.text_input(
             "Pincode (optional)",
             max_chars=6,
             key=f"new_pincode_f_{location_key}",
             placeholder="Enter pincode",
-            help="Enter a valid 6-digit pincode to auto-fill location. GPS button above also fills location without touching this field.",
+            help="Enter pincode to auto-fill location, OR use the GPS button above.",
         )
 
-        # ── Pincode auto-fill (only when user types pincode — GPS never writes here) ──
+        # ── Pincode auto-fill (never overwrites GPS-filled fields if GPS was used) ──
         location_auto_filled = False
         if new_pincode and is_valid_pincode(new_pincode):
             auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
@@ -1924,9 +1949,9 @@ with main_col:
                 location_auto_filled = True
 
         if location_auto_filled:
-            st.caption("✓ Location auto-filled from pincode — edit below if needed")
+            st.caption("✓ Location filled from pincode — edit below if needed")
         elif st.session_state.get(gps_key):
-            st.caption("✓ Location detected via GPS — edit below if needed")
+            st.caption(f"✓ GPS location detected — edit below if needed")
 
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         state_col, district_col = st.columns([1.1, 1.1])
