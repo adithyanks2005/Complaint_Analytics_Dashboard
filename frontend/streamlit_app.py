@@ -1872,9 +1872,21 @@ with main_col:
                             _geo = _r.json()
                             _addr = _geo.get("address", {})
                             _gps_state    = _addr.get("state", "")
-                            _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
-                            _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("municipality") or _addr.get("village") or "")
-                            _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
+                            _gps_district = (
+                                _addr.get("county") or _addr.get("state_district") or
+                                _addr.get("district") or ""
+                            )
+                            _gps_muni = (
+                                _addr.get("city") or _addr.get("town") or
+                                _addr.get("city_district") or _addr.get("municipality") or
+                                _addr.get("township") or _addr.get("hamlet") or
+                                _addr.get("village") or _gps_district or ""
+                            )
+                            _gps_area = (
+                                _addr.get("suburb") or _addr.get("neighbourhood") or
+                                _addr.get("quarter") or _addr.get("residential") or
+                                _addr.get("road") or _addr.get("amenity") or ""
+                            )
                             _gps_display  = _geo.get("display_name", "")[:70]
                             if _gps_state:
                                 st.session_state[f"new_state_f_{location_key}"] = _gps_state
