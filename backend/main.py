@@ -247,10 +247,15 @@ def export_complaints(
     category: str | None = None,
     status: str | None = None,
 ):
-    df = filtered_data(start_date, end_date, state, district, area, pincode, category, status)
+    # filter_complaints returns a DataFrame; load it directly here
+    df = filter_complaints(
+        load_complaints(), start_date, end_date, state, district, area, pincode, category, status
+    )
     export_df = df.copy()
     for col in ["created_date", "closed_date"]:
-        export_df[col] = export_df[col].dt.strftime("%Y-%m-%d")
+        if col in export_df.columns:
+            export_df[col] = export_df[col].dt.strftime("%Y-%m-%d")
+            export_df[col] = export_df[col].where(export_df[col].notna(), None)
     export_df = export_df.drop(columns=["closure_days"], errors="ignore")
     buffer = StringIO()
     export_df.to_csv(buffer, index=False)

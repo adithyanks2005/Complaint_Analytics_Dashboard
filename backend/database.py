@@ -29,6 +29,10 @@ SUPABASE_KEY = (
     or os.getenv("SUPABASE_ANON_KEY")
 )
 
+# Flag to track if Supabase connection has been verified as working
+_supabase_verified: bool = False
+_supabase_failed: bool = False
+
 # Database file location - Vercel uses /tmp, otherwise local data folder
 if os.getenv("VERCEL"):
     DB_PATH = Path("/tmp/complaints.db")
@@ -57,25 +61,37 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 def using_supabase() -> bool:
-    """True when Supabase configuration is present.
-    The app will use the Supabase client instead of SQLite.
+    """True when Supabase configuration is present AND connection has not failed.
+    Falls back to SQLite if credentials are invalid or the package errors out.
     """
+    global _supabase_failed
+    if _supabase_failed:
+        return False
     return bool(SUPABASE_URL and SUPABASE_KEY)
 
 def get_supabase_client():
     """Lazily create the Supabase client.
-    Raises a clear error if the package is missing.
+    Sets _supabase_failed=True on any connection error so the app falls back to SQLite.
     """
-    global _supabase_client
+    global _supabase_client, _supabase_failed
     if _supabase_client is None:
         try:
             from supabase import create_client
         except ImportError as exc:
+            _supabase_failed = True
             raise RuntimeError(
                 "Supabase is configured but the 'supabase' package is not installed. "
                 "Run `pip install -r requirements.txt`."
             ) from exc
-        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        try:
+            _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "Supabase connection failed (%s) – falling back to SQLite.", exc
+            )
+            _supabase_failed = True
+            raise
     return _supabase_client
 
 def _normalise_record(record: dict[str, object]) -> dict[str, object]:
@@ -157,11 +173,18 @@ def seed_complaints(connection: sqlite3.Connection) -> None:
 def init_db() -> None:
     """Create the complaints table if it does not exist and run migrations.
     The function is guarded so it runs only once per process.
+    If Supabase is configured but fails, falls back to SQLite.
     """
     global _db_initialised
     if using_supabase():
-        _db_initialised = True
-        return
+        # Verify the Supabase connection works; if not, fall back to SQLite
+        try:
+            get_supabase_client()
+            _db_initialised = True
+            return
+        except Exception:
+            # _supabase_failed is now True; continue to SQLite init below
+            pass
     if _db_initialised:
         return
     with _init_lock:
@@ -276,14 +299,18 @@ def migrate_schema(connection: sqlite3.Connection) -> None:
 def read_complaints_df() -> pd.DataFrame:
     init_db()
     if using_supabase():
-        resp = (
-            get_supabase_client()
-            .table(SUPABASE_TABLE)
-            .select(",".join(COMPLAINT_COLUMNS))
-            .order("created_date", desc=False)
-            .execute()
-        )
-        return pd.DataFrame(resp.data or [], columns=COMPLAINT_COLUMNS)
+        try:
+            resp = (
+                get_supabase_client()
+                .table(SUPABASE_TABLE)
+                .select(",".join(COMPLAINT_COLUMNS))
+                .order("created_date", desc=False)
+                .execute()
+            )
+            return pd.DataFrame(resp.data or [], columns=COMPLAINT_COLUMNS)
+        except Exception:
+            # _supabase_failed is now True; fall through to SQLite
+            pass
     with get_connection() as conn:
         return pd.read_sql_query("SELECT * FROM complaints", conn)
 
@@ -295,15 +322,18 @@ def row_to_dict(row: sqlite3.Row | None) -> dict[str, object] | None:
 def get_complaint_by_id(complaint_id: str) -> dict[str, object] | None:
     init_db()
     if using_supabase():
-        resp = (
-            get_supabase_client()
-            .table(SUPABASE_TABLE)
-            .select(",".join(COMPLAINT_COLUMNS))
-            .eq("id", complaint_id)
-            .maybe_single()
-            .execute()
-        )
-        return _normalise_record(resp.data) if resp.data else None
+        try:
+            resp = (
+                get_supabase_client()
+                .table(SUPABASE_TABLE)
+                .select(",".join(COMPLAINT_COLUMNS))
+                .eq("id", complaint_id)
+                .maybe_single()
+                .execute()
+            )
+            return _normalise_record(resp.data) if resp.data else None
+        except Exception:
+            pass
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,)).fetchone()
     return row_to_dict(row)
@@ -317,13 +347,20 @@ def insert_complaint(record: dict[str, object]) -> dict[str, object]:
     record = _normalise_record(record)
     try:
         if using_supabase():
-            resp = (
-                get_supabase_client()
-                .table(SUPABASE_TABLE)
-                .insert(record)
-                .execute()
-            )
-            return _normalise_record(resp.data[0])
+            try:
+                resp = (
+                    get_supabase_client()
+                    .table(SUPABASE_TABLE)
+                    .insert(record)
+                    .execute()
+                )
+                return _normalise_record(resp.data[0])
+            except Exception as exc:
+                if _is_duplicate_error(exc):
+                    raise DuplicateComplaintError from exc
+                if not _supabase_failed:
+                    raise
+                # Supabase failed – fall through to SQLite
         with get_connection() as conn:
             placeholders = ", ".join("?" for _ in COMPLAINT_COLUMNS)
             cols_sql = ", ".join(COMPLAINT_COLUMNS)
@@ -331,6 +368,8 @@ def insert_complaint(record: dict[str, object]) -> dict[str, object]:
                 f"INSERT INTO complaints ({cols_sql}) VALUES ({placeholders})",
                 tuple(record[col] for col in COMPLAINT_COLUMNS),
             )
+    except DuplicateComplaintError:
+        raise
     except Exception as exc:
         if _is_duplicate_error(exc):
             raise DuplicateComplaintError from exc
@@ -343,16 +382,18 @@ def update_complaint_record(complaint_id: str, record: dict[str, object]) -> dic
     record = _normalise_record({**existing, **record, "id": complaint_id})
     updates = {k: v for k, v in record.items() if k != "id"}
     if using_supabase():
-        resp = (
-            get_supabase_client()
-            .table(SUPABASE_TABLE)
-            .update(updates)
-            .eq("id", complaint_id)
-            .execute()
-        )
-        if not resp.data:
-            return None
-        return _normalise_record(resp.data[0])
+        try:
+            resp = (
+                get_supabase_client()
+                .table(SUPABASE_TABLE)
+                .update(updates)
+                .eq("id", complaint_id)
+                .execute()
+            )
+            if resp.data:
+                return _normalise_record(resp.data[0])
+        except Exception:
+            pass  # fall through to SQLite
     with get_connection() as conn:
         set_clause = ", ".join(f"{col} = ?" for col in COMPLAINT_COLUMNS if col != "id")
         conn.execute(
@@ -364,13 +405,16 @@ def update_complaint_record(complaint_id: str, record: dict[str, object]) -> dic
 def delete_complaint_record(complaint_id: str) -> None:
     init_db()
     if using_supabase():
-        (
-            get_supabase_client()
-            .table(SUPABASE_TABLE)
-            .delete()
-            .eq("id", complaint_id)
-            .execute()
-        )
-        return
+        try:
+            (
+                get_supabase_client()
+                .table(SUPABASE_TABLE)
+                .delete()
+                .eq("id", complaint_id)
+                .execute()
+            )
+            return
+        except Exception:
+            pass  # fall through to SQLite
     with get_connection() as conn:
         conn.execute("DELETE FROM complaints WHERE id = ?", (complaint_id,))

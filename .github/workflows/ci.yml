@@ -35,15 +35,15 @@ jobs:
       - name: Run unit tests
         run: |
           pytest tests/ -v --tb=short
-- name: Deploy to Streamlit Cloud
-  if: github.ref == 'refs/heads/main'
-  env:
-    STREAMLIT_TOKEN: ${{ secrets.STREAMLIT_TOKEN }}
-  run: |
-    if [ -z "$STREAMLIT_TOKEN" ]; then
-      echo "STREAMLIT_TOKEN not set, skipping deployment."
-      exit 0
-    fi
-    pip install streamlit
-    streamlit deploy --token $STREAMLIT_TOKEN --repo ${{ github.repository }} --branch main --file streamlit_app.py
 
+      - name: Deploy to Streamlit Cloud
+        if: github.ref == 'refs/heads/main'
+        env:
+          STREAMLIT_TOKEN: ${{ secrets.STREAMLIT_TOKEN }}
+        run: |
+          if [ -z "$STREAMLIT_TOKEN" ]; then
+            echo "STREAMLIT_TOKEN not set, skipping deployment."
+            exit 0
+          fi
+          pip install streamlit
+          streamlit deploy --token $STREAMLIT_TOKEN --repo ${{ github.repository }} --branch main --file streamlit_app.py

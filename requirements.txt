@@ -8,3 +8,4 @@ streamlit-back-camera-input==0.1.1
 flake8==7.0.0
 fastapi>=0.110.0
 uvicorn>=0.29.0
+requests>=2.31.0

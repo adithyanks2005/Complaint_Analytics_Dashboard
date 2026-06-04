@@ -1,7 +1,7 @@
 # Complaint Analytics Dashboard 📊
 ![CI](https://github.com/adithyanks2005/Complaint_Analytics_Dashboard/actions/workflows/ci.yml/badge.svg) ![Docker](https://ghcr-badge.egpl.io/adithyanks2005/complaint-dashboard) ![Streamlit](https://static.streamlit.io/badges/streamlit_badge.svg)
 
-![Dashboard UI Mockup](file:///C:/Users/adith/.gemini/antigravity-ide/brain/a3f07fd0-16a1-4c6b-85c3-d5c843a4a95f/dashboard_ui_mockup_1780164687369.png)
+![Dashboard UI Mockup](https://via.placeholder.com/800x400?text=Dashboard+Mockup)
 
 A **premium, production‑ready** complaint‑analytics dashboard built with **Streamlit** (frontend) and a lightweight **SQLite** backend (optionally Supabase). The repository includes:
 
