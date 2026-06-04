@@ -625,7 +625,7 @@ st.set_page_config(
     page_title="Complaint Analytics Dashboard",
     page_icon=":bar_chart:",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ── Global Styles ──────────────────────────────────────────────────────────────
@@ -923,6 +923,98 @@ div[data-testid="InputInstructions"] { display: none !important; }
 .no-results-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
 .no-results-title { font-size: 1.1rem; font-weight: 600; color: #94a3b8; margin-bottom: 4px; }
 .no-results-sub { font-size: 0.85rem; max-width: 250px; }
+
+/* ── Responsive: Mobile (≤768px) ── */
+@media (max-width: 768px) {
+  /* Full-width content, tighter padding */
+  .main .block-container {
+    padding: 1rem 0.75rem !important;
+  }
+
+  /* Header adjustments */
+  .page-header { padding: 14px 16px; border-radius: 14px; margin-bottom: 16px; }
+  .page-header-title { font-size: 1.25rem; }
+  .page-header-sub { font-size: 0.78rem; }
+  .header-badges { gap: 6px; }
+  .header-badge { font-size: 0.72rem; padding: 5px 12px; }
+
+  /* KPI cards: 2 per row on mobile */
+  .kpi-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .kpi-card { padding: 14px 12px; border-radius: 12px; }
+  .kpi-value { font-size: 1.35rem; }
+  .kpi-label { font-size: 0.62rem; }
+  .kpi-icon { width: 36px; height: 36px; }
+  .kpi-icon svg { width: 18px; height: 18px; }
+
+  /* Chart titles */
+  .chart-title { font-size: 1.1rem; }
+  .chart-title svg { width: 28px; height: 28px; }
+
+  /* Tabs: full width, smaller text */
+  .stTabs [data-baseweb="tab"] { font-size: 0.78rem; padding: 6px 10px; }
+
+  /* Sidebar toggle visible, overlay on mobile */
+  section[data-testid="stSidebar"] {
+    width: 85vw !important;
+    min-width: unset !important;
+  }
+
+  /* Buttons full width on mobile */
+  .stButton > button { width: 100%; font-size: 0.9rem; padding: 12px 16px; }
+
+  /* Inputs touch-friendly */
+  div[data-testid="stTextInput"] [data-baseweb="input"],
+  div[data-testid="stTextArea"] [data-baseweb="textarea"],
+  div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    min-height: 48px !important;
+    font-size: 1rem !important;
+  }
+
+  /* Stack columns to single column */
+  div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+
+  /* No-results cards */
+  .no-results-card { min-height: 160px; padding: 24px 16px; }
+
+  /* Hide hover effects on touch */
+  .kpi-card:hover { transform: none; }
+  .kpi-grid:hover .kpi-card { filter: none; }
+}
+
+/* ── Responsive: Tablet (769px – 1024px) ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main .block-container { padding: 1.5rem 1.5rem !important; }
+
+  /* KPI cards: wrap at 3 per row */
+  .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .kpi-card { padding: 16px 14px; }
+  .kpi-value { font-size: 1.5rem; }
+
+  .page-header-title { font-size: 1.5rem; }
+  .chart-title { font-size: 1.25rem; }
+
+  div[data-testid="stTextInput"] [data-baseweb="input"],
+  div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    min-height: 44px !important;
+  }
+}
+
+/* ── Responsive: Desktop (≥1025px) ── */
+@media (min-width: 1025px) {
+  .kpi-grid { display: flex !important; }
+  .main .block-container { padding: 2rem 3rem !important; }
+}
 </style>
 <svg width="0" height="0">
   <defs>
