@@ -1804,7 +1804,7 @@ with main_col:
             "Pincode (optional)",
             max_chars=6,
             key=f"new_pincode_f_{location_key}",
-            placeholder="Enter 6-digit pincode to auto-fill location",
+            placeholder="Enter pincode",
             help="Enter a valid 6-digit pincode to auto-fill State, District, Municipality and Area"
         )
 
@@ -1846,12 +1846,12 @@ with main_col:
         muni_col, area_col = st.columns([1.1, 1.1])
         new_municipality = muni_col.text_input(
             "Municipality",
-            placeholder="Auto-filled from pincode or enter manually",
+            placeholder="Enter municipality",
             key=f"new_municipality_f_{location_key}",
         )
         new_area = area_col.text_input(
             "Area / Locality",
-            placeholder="Auto-filled from pincode or enter manually",
+            placeholder="Enter area or locality",
             max_chars=80,
             key=f"new_area_f_{location_key}",
         )
