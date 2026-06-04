@@ -34,9 +34,6 @@ from backend.database import (
     using_supabase,
 )
 from backend.ai_prioritizer import compute_priority
-from backend.pincode_lookup import (
-    get_location_from_pincode,
-)
 
 # ── Notification helper ────────────────────────────────────────────────────────
 try:
@@ -1059,7 +1056,7 @@ except Exception as e:
 @st.cache_data(ttl=30)
 def load_all() -> pd.DataFrame:
     df = read_complaints_df()
-    for col in ["state", "district", "municipality", "village", "pincode"]:
+    for col in ["state", "district", "municipality", "village"]:
         if col not in df.columns:
             df[col] = None
     df["created_date"] = pd.to_datetime(df["created_date"], errors="coerce")
@@ -1068,7 +1065,7 @@ def load_all() -> pd.DataFrame:
     return df
 
 
-def filter_df(df, start, end, state, district, municipality, village, area, pincode, category, status):
+def filter_df(df, start, end, state, district, municipality, village, area, category, status):
     f = df.copy()
     f = f[f["created_date"].dt.date >= start]
     f = f[f["created_date"].dt.date <= end]
@@ -1077,7 +1074,6 @@ def filter_df(df, start, end, state, district, municipality, village, area, pinc
     if municipality: f = f[f["municipality"].fillna("").astype(str) == municipality]
     if village:      f = f[f["village"].fillna("").astype(str)      == village]
     if area:         f = f[f["area"].fillna("").astype(str)         == area]
-    if pincode:      f = f[f["pincode"].fillna("").astype(str)      == pincode]
     if category != "All": f = f[f["category"] == category]
     if status   != "All": f = f[f["status"]   == status]
     return f.sort_values("created_date", ascending=False)
@@ -1114,7 +1110,6 @@ def build_receipt(complaint: dict[str, object]) -> str:
         ("Municipality", complaint.get("municipality") or "Not provided"),
         ("Village", complaint.get("village") or "Not provided"),
         ("Area", complaint["area"]),
-        ("Pincode", complaint.get("pincode") or "Not provided"),
         ("Category", complaint["category"]),
         ("Priority", complaint["priority"] or "Not set"),
         ("Status", complaint["status"]),
@@ -1132,10 +1127,6 @@ def is_valid_contact(value: str) -> bool:
     email_ok = re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value)
     mobile_ok = re.fullmatch(r"\+?[0-9][0-9\s-]{7,14}[0-9]", value)
     return bool(email_ok or mobile_ok)
-
-
-def is_valid_pincode(value: str) -> bool:
-    return bool(re.fullmatch(r"[1-9][0-9]{5}", value.strip()))
 
 
 def build_location_options(df: pd.DataFrame, column: str) -> list[str]:
@@ -1214,32 +1205,6 @@ def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
     return str(path.relative_to(PROJECT_ROOT))
 
 
-def auto_fill_location_from_pincode(pincode: str, location_key: int) -> dict[str, str] | None:
-    """
-    Auto-fill location details from pincode.
-    Updates session state if valid pincode is provided.
-    
-    Args:
-        pincode: 6-digit Indian pincode
-        location_key: Key for session state storage
-        
-    Returns:
-        Dictionary with state, district, municipality, village if found, else None
-    """
-    if not pincode or not is_valid_pincode(pincode):
-        return None
-    
-    location_data = get_location_from_pincode(pincode)
-    if location_data:
-        # Update session state with auto-filled values
-        st.session_state[f"new_state_f_{location_key}"] = location_data.get("state", "Not provided")
-        st.session_state[f"new_district_f_{location_key}"] = location_data.get("district", "Not provided")
-        st.session_state[f"new_municipality_f_{location_key}"] = location_data.get("municipality", "Not provided")
-        st.session_state[f"new_village_f_{location_key}"] = location_data.get("village", "Not provided")
-        return location_data
-    return None
-
-
 def build_area_options(saved_areas: list[str]) -> list[str]:
     custom_areas = [
         area.strip()
@@ -1251,7 +1216,7 @@ def build_area_options(saved_areas: list[str]) -> list[str]:
     return sorted({*INDIAN_LOCATIONS, *custom_areas})
 
 
-LOCATION_FIELDS = ("state", "district", "municipality", "village", "area", "pincode")
+LOCATION_FIELDS = ("state", "district", "municipality", "village", "area")
 
 
 def _clean_location_value(value) -> str:
@@ -1266,16 +1231,13 @@ def format_combined_location(location: dict[str, str]) -> str:
     filled_parts = [
         (field, location.get(field))
         for field in LOCATION_FIELDS
-        if field != "pincode" and location.get(field)
+        if location.get(field)
     ]
     if len(filled_parts) == 1:
         field, value = filled_parts[0]
         return value
     parts = [value for _, value in filled_parts]
     label = ", ".join(part for part in parts if part)
-    pincode = location.get("pincode")
-    if pincode:
-        label = f"{label} - {pincode}" if label else pincode
     if label:
         return label
     for field in LOCATION_FIELDS:
@@ -1393,7 +1355,6 @@ af = {
     "municipality": sel_location.get("municipality", ""),
     "village": sel_location.get("village", ""),
     "area": sel_location.get("area", ""),
-    "pincode": sel_location.get("pincode", ""),
     "category": sel_category,
     "status": sel_status,
 }
@@ -1406,7 +1367,6 @@ df = filter_df(
     af["municipality"],
     af["village"],
     af["area"],
-    af["pincode"],
     af["category"],
     af["status"],
 )
@@ -1696,7 +1656,6 @@ with main_col:
                 "municipality": new_municipality.strip(),
                 "area": new_area.strip(),
                 "village": new_village.strip() if new_village else "",
-                "pincode": new_pincode.strip(),
             }
             final_area = next(
                 (
@@ -1708,7 +1667,6 @@ with main_col:
             )
             final_category = new_category
             final_contact = user_contact.strip()
-            final_pincode = selected_location["pincode"]
             image_file = camera_file or uploaded_file
             final_desc = new_desc.strip()
             final_priority = compute_priority(final_desc)
@@ -1720,8 +1678,6 @@ with main_col:
                 st.error("Category must be at least 2 characters")
             elif final_contact and not is_valid_contact(final_contact):
                 st.error("Enter a valid email ID or mobile number")
-            elif final_pincode and not is_valid_pincode(final_pincode):
-                st.error("Enter a valid 6-digit Indian PIN code")
             elif image_mode != "No image" and not image_file:
                 st.error("Please attach an image (take a photo or upload a file) before submitting")
             elif image_file and len(image_file.getvalue()) > MAX_IMAGE_BYTES:
@@ -1742,7 +1698,7 @@ with main_col:
                         "municipality": selected_location.get("municipality") or None,
                         "village": selected_location.get("village") or None,
                         "area": final_area,
-                        "pincode": final_pincode or None,
+                        "pincode": None,  # No pincode field anymore
                         "category": final_category,
                         "priority": final_priority,
                         "status": "Pending",
@@ -1784,7 +1740,6 @@ with main_col:
                 receipt.get("municipality"),
                 receipt.get("district"),
                 receipt.get("state"),
-                receipt.get("pincode"),
             ]
             location_text = ", ".join(str(bit) for bit in location_bits if bit)
             if location_text:
@@ -1822,31 +1777,86 @@ with main_col:
             try:
                 _lat = float(_qp["gps_lat"])
                 _lng = float(_qp["gps_lng"])
+                
+                # Use Google Maps Geocoding API for reverse geocoding
                 import requests as _req
-                _r = _req.get(
-                    "https://nominatim.openstreetmap.org/reverse",
-                    params={"lat": _lat, "lon": _lng, "format": "json"},
-                    headers={"User-Agent": "ComplaintDashboard/1.0"},
-                    timeout=6,
-                )
-                if _r.status_code == 200:
-                    _geo = _r.json()
-                    _addr = _geo.get("address", {})
-                    _gps_state    = _addr.get("state", "")
-                    _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
-                    _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("municipality") or _addr.get("village") or "")
-                    _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
-                    _gps_display  = _geo.get("display_name", "")[:70]
-                    if _gps_state:
-                        st.session_state[f"new_state_f_{location_key}"] = _gps_state
-                    if _gps_district:
-                        st.session_state[f"new_district_f_{location_key}"] = _gps_district
-                    if _gps_muni:
-                        st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
-                    if _gps_area:
-                        st.session_state[f"new_area_f_{location_key}"] = _gps_area
-                    # pincode is NOT written — user owns that field
-                    st.session_state[gps_key] = _gps_display
+                import os
+                
+                google_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+                if google_api_key and google_api_key != "YOUR_GOOGLE_MAPS_API_KEY_HERE":
+                    # Google Maps reverse geocoding
+                    _r = _req.get(
+                        "https://maps.googleapis.com/maps/api/geocode/json",
+                        params={
+                            "latlng": f"{_lat},{_lng}",
+                            "key": google_api_key,
+                            "result_type": "street_address|sublocality|locality|administrative_area_level_3|administrative_area_level_2|administrative_area_level_1"
+                        },
+                        timeout=10,
+                    )
+                    if _r.status_code == 200:
+                        _geo_data = _r.json()
+                        if _geo_data.get("status") == "OK" and _geo_data.get("results"):
+                            _result = _geo_data["results"][0]
+                            _components = _result.get("address_components", [])
+                            
+                            # Parse Google Maps address components
+                            _gps_state = ""
+                            _gps_district = ""
+                            _gps_muni = ""
+                            _gps_area = ""
+                            
+                            for comp in _components:
+                                types = comp.get("types", [])
+                                name = comp.get("long_name", "")
+                                
+                                if "administrative_area_level_1" in types:  # State
+                                    _gps_state = name
+                                elif "administrative_area_level_2" in types:  # District
+                                    _gps_district = name
+                                elif "administrative_area_level_3" in types or "locality" in types:  # Municipality
+                                    _gps_muni = name
+                                elif "sublocality_level_1" in types or "neighborhood" in types:  # Area
+                                    _gps_area = name
+                            
+                            _gps_display = _result.get("formatted_address", "")[:70]
+                            
+                            if _gps_state:
+                                st.session_state[f"new_state_f_{location_key}"] = _gps_state
+                            if _gps_district:
+                                st.session_state[f"new_district_f_{location_key}"] = _gps_district
+                            if _gps_muni:
+                                st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
+                            if _gps_area:
+                                st.session_state[f"new_area_f_{location_key}"] = _gps_area
+                            
+                            st.session_state[gps_key] = _gps_display
+                else:
+                    # Fallback to Nominatim if no Google API key
+                    _r = _req.get(
+                        "https://nominatim.openstreetmap.org/reverse",
+                        params={"lat": _lat, "lon": _lng, "format": "json"},
+                        headers={"User-Agent": "ComplaintDashboard/1.0"},
+                        timeout=6,
+                    )
+                    if _r.status_code == 200:
+                        _geo = _r.json()
+                        _addr = _geo.get("address", {})
+                        _gps_state    = _addr.get("state", "")
+                        _gps_district = (_addr.get("county") or _addr.get("state_district") or _addr.get("district") or "")
+                        _gps_muni     = (_addr.get("city") or _addr.get("town") or _addr.get("municipality") or _addr.get("village") or "")
+                        _gps_area     = (_addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("road") or "")
+                        _gps_display  = _geo.get("display_name", "")[:70]
+                        if _gps_state:
+                            st.session_state[f"new_state_f_{location_key}"] = _gps_state
+                        if _gps_district:
+                            st.session_state[f"new_district_f_{location_key}"] = _gps_district
+                        if _gps_muni:
+                            st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
+                        if _gps_area:
+                            st.session_state[f"new_area_f_{location_key}"] = _gps_area
+                        st.session_state[gps_key] = _gps_display
+                        
                 st.query_params.clear()
                 st.rerun()
             except Exception as _e:
@@ -1855,8 +1865,9 @@ with main_col:
         # ── GPS button rendered as self-contained iframe component ─────────────
         # The iframe calls navigator.geolocation then navigates parent window
         # with ?gps_lat=...&gps_lng=... which Streamlit picks up on rerun.
+        # Uses Google Maps for reverse geocoding when API key is available.
         _gps_done = bool(st.session_state.get(gps_key))
-        _btn_label = "✅ Location Detected" if _gps_done else "📍 Use My Location"
+        _btn_label = "✅ Location Detected" if _gps_done else "🗺️ Use My Location (Google Maps)"
         _btn_color = "#10b981" if _gps_done else "#6366f1"
 
         components.html(f"""
@@ -1922,36 +1933,12 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
 </html>
 """, height=80)
 
-        # ── ID + Pincode row ───────────────────────────────────────────────────
-        id_col, pin_col = st.columns([1, 1])
-        new_id = id_col.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
-        new_pincode = pin_col.text_input(
-            "Pincode (optional)",
-            max_chars=6,
-            key=f"new_pincode_f_{location_key}",
-            placeholder="Enter pincode",
-            help="Enter pincode to auto-fill location, OR use the GPS button above.",
-        )
+        # ── Only Complaint ID row (no pincode) ────────────────────────────────────
+        new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
 
-        # ── Pincode auto-fill (never overwrites GPS-filled fields if GPS was used) ──
-        location_auto_filled = False
-        if new_pincode and is_valid_pincode(new_pincode):
-            auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
-            if auto_fill_result:
-                if auto_fill_result.get("state"):
-                    st.session_state[f"new_state_f_{location_key}"] = auto_fill_result["state"]
-                if auto_fill_result.get("district"):
-                    st.session_state[f"new_district_f_{location_key}"] = auto_fill_result["district"]
-                if auto_fill_result.get("municipality"):
-                    st.session_state[f"new_municipality_f_{location_key}"] = auto_fill_result["municipality"]
-                if auto_fill_result.get("village"):
-                    st.session_state[f"new_area_f_{location_key}"] = auto_fill_result["village"]
-                location_auto_filled = True
-
-        if location_auto_filled:
-            st.caption("✓ Location filled from pincode — edit below if needed")
-        elif st.session_state.get(gps_key):
-            st.caption(f"✓ GPS location detected — edit below if needed")
+        # ── Show location detection status ────────────────────────────────────────
+        if st.session_state.get(gps_key):
+            st.caption(f"✓ GPS location detected: {st.session_state[gps_key]} — edit fields below if needed")
 
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         state_col, district_col = st.columns([1.1, 1.1])
@@ -1977,7 +1964,7 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
             max_chars=80,
             key=f"new_area_f_{location_key}",
         )
-        new_village = ""  # village stored internally from pincode/GPS lookup
+        new_village = ""  # village stored internally from GPS lookup
 
         camera_file = None
         uploaded_file = None
@@ -2072,16 +2059,12 @@ if st.session_state.is_admin:
                 upd_municipality = loc3.text_input("Municipality", value=str(row.get("municipality") or ""), key="adm_municipality")
                 loc4, loc5 = st.columns(2)
                 upd_village = loc4.text_input("Village", value=str(row.get("village") or ""), key="adm_village")
-                upd_pincode = loc5.text_input("Pincode", value=str(row.get("pincode") or ""), max_chars=6, key="adm_pincode")
+                upd_area = loc5.text_input("Area", value=str(row.get("area") or ""), key="adm_area")
                 upd_closed   = st.date_input("Closed Date", value=date.today(), key="adm_closed", format="DD/MM/YYYY") if upd_status == "Closed" else None
                 upd_desc     = st.text_area("Description", value=str(row["description"]) if pd.notna(row["description"]) else "", key="adm_desc")
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):
                     closed_val = upd_closed.isoformat() if upd_closed else None
-                    final_admin_pincode = upd_pincode.strip()
                     created_for_check = row["created_date"].date() if pd.notna(row["created_date"]) else date.today()
-                    if final_admin_pincode and not is_valid_pincode(final_admin_pincode):
-                        st.error("Enter a valid 6-digit Indian PIN code")
-                        st.stop()
                     if upd_closed and upd_closed < created_for_check:
                         st.error("Closed date cannot be before created date")
                         st.stop()
@@ -2093,8 +2076,8 @@ if st.session_state.is_admin:
                             "district": upd_district.strip() or None,
                             "municipality": upd_municipality.strip() or None,
                             "village": upd_village.strip() or None,
-                            "area": upd_area,
-                            "pincode": final_admin_pincode or None,
+                            "area": upd_area.strip() or None,
+                            "pincode": None,  # No longer collecting pincode
                             "category": upd_category,
                             "priority": upd_priority,
                             "status": upd_status,
