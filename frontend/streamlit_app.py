@@ -1047,6 +1047,8 @@ if "login_uid_input" not in st.session_state: st.session_state.login_uid_input =
 if "drawer_open"     not in st.session_state: st.session_state.drawer_open     = False
 if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
 if "notify_msg"      not in st.session_state: st.session_state.notify_msg      = None
+if "admin_notify_msg" not in st.session_state: st.session_state.admin_notify_msg = None
+if "login_attempts"  not in st.session_state: st.session_state.login_attempts  = 0
 if "new_complaint_id" not in st.session_state:
     st.session_state.new_complaint_id = None
 if "last_complaint_receipt" not in st.session_state:
@@ -1074,6 +1076,7 @@ def load_all() -> pd.DataFrame:
 
 def filter_df(df, start, end, state, district, municipality, village, area, category, status):
     f = df.copy()
+    f = f[f["created_date"].notna()]
     f = f[f["created_date"].dt.date >= start]
     f = f[f["created_date"].dt.date <= end]
     if state:        f = f[f["state"].fillna("").astype(str)        == state]
@@ -1170,7 +1173,7 @@ def select_valid_option(label: str, options: list[str], key: str, container=st) 
     return container.selectbox(label, options, key=key)
 
 
-def notify_user(contact: str, message: str) -> None:
+def notify_user(contact: str, message: str, channel: str = "form") -> None:
     """Send a notification (email or SMS) to the user based on their contact.
     Routes to Gmail SMTP for emails and Twilio for phone numbers.
     Stores the result in st.session_state so it survives st.rerun().
@@ -1179,16 +1182,17 @@ def notify_user(contact: str, message: str) -> None:
     if not contact:
         return
     subject = "Complaint Analytics Dashboard - Update"
+    msg_key = "admin_notify_msg" if channel == "admin" else "notify_msg"
     if _NOTIFIER_AVAILABLE:
         try:
             _notify_real(contact, subject, message)
-            st.session_state.notify_msg = ("success", f"Notification sent to **{contact}**")
+            st.session_state[msg_key] = ("success", f"Notification sent to **{contact}**")
             return
         except Exception as exc:
-            st.session_state.notify_msg = ("warning", f"Could not send notification ({exc}). Check your contact details.")
+            st.session_state[msg_key] = ("warning", f"Could not send notification ({exc}). Check your contact details.")
             return
     # Fallback: store in-app banner in session state
-    st.session_state.notify_msg = ("info", f"📢 Notification for **{contact}**: {message}")
+    st.session_state[msg_key] = ("info", f"📢 Notification for **{contact}**: {message}")
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -1297,7 +1301,7 @@ with st.sidebar:
     combined_locations = build_combined_location_options(all_df, [])
     location_filter_options = [{"label": "All locations"}, *combined_locations]
     state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
-    categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
+    categories = sorted(all_df["category"].dropna().unique().tolist()) or ["General"]
     statuses   = sorted(all_df["status"].dropna().unique().tolist())    or ["Pending"]
 
     st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><circle cx="12" cy="4" r="2"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><circle cx="10" cy="12" r="2"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><circle cx="14" cy="20" r="2"/></svg><span>Filters</span></div>""", unsafe_allow_html=True)
@@ -1327,7 +1331,6 @@ with st.sidebar:
             st.rerun()
 
     elif st.session_state.login_step == 1:
-        st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
         uid = st.text_input("Admin Name", placeholder="Enter Admin Name", key="uid_field", label_visibility="collapsed")
         next_clicked = st.button("Next", use_container_width=True)
 
@@ -1349,13 +1352,21 @@ with st.sidebar:
         login_clicked = st.button("Login", use_container_width=True)
 
         if login_clicked:
-            if pwd == ADMIN_PASSWORD:
+            if st.session_state.login_attempts >= 3:
+                st.error("Too many failed attempts. Refresh the page to try again.")
+            elif pwd == ADMIN_PASSWORD:
                 st.session_state.is_admin    = True
                 st.session_state.login_step  = 0
+                st.session_state.login_attempts = 0
                 st.session_state.drawer_open = True
                 st.rerun()
             else:
-                st.error("Incorrect password")
+                st.session_state.login_attempts += 1
+                remaining = 3 - st.session_state.login_attempts
+                if remaining > 0:
+                    st.error(f"Incorrect password. {remaining} attempt(s) remaining.")
+                else:
+                    st.error("Too many failed attempts. Refresh the page to try again.")
 
         if st.button("Back", use_container_width=True):
             st.session_state.login_step = 1
@@ -1544,13 +1555,15 @@ with main_col:
         with col1:
             st.markdown("""<div class="chart-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg><span>Monthly Trend</span></div>""", unsafe_allow_html=True)
             if not trend_df.empty:
+                trend_df["month_dt"] = pd.to_datetime(trend_df["month"] + "-01")
                 fig = go.Figure(go.Scatter(
-                    x=trend_df["month"], y=trend_df["complaints"],
+                    x=trend_df["month_dt"], y=trend_df["complaints"],
                     mode="lines+markers", line=dict(color="#6366f1", width=2.5),
                     marker=dict(size=7, color="#8b5cf6"),
                     fill="tozeroy", fillcolor="rgba(99,102,241,0.1)"
                 ))
                 fig.update_layout(**CHART_LAYOUT, height=280)
+                fig.update_xaxes(dtick="M1", tickformat="%b %Y")
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.markdown("""
@@ -1564,9 +1577,10 @@ with main_col:
         with col2:
             st.markdown("""<div class="chart-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 4.97-4.03 9-9 9S3 16.97 3 12s4.03-9 9-9v9h9z"/><path d="M13 2.05A9 9 0 0 1 21.95 11H13V2.05z"/></svg><span>Category Distribution</span></div>""", unsafe_allow_html=True)
             if not category_df.empty:
+                _PIE_COLORS = ["#6366f1","#8b5cf6","#a78bfa","#c4b5fd","#3b82f6","#60a5fa","#10b981","#34d399","#f59e0b","#fbbf24"]
                 fig = go.Figure(go.Pie(
                     labels=category_df["category"], values=category_df["complaints"],
-                    hole=0.6, marker=dict(colors=["#6366f1","#8b5cf6","#a78bfa","#c4b5fd"])
+                    hole=0.6, marker=dict(colors=_PIE_COLORS[:len(category_df)])
                 ))
                 fig.update_layout(**CHART_LAYOUT, height=280)
                 st.plotly_chart(fig, use_container_width=True)
@@ -1640,6 +1654,8 @@ with main_col:
     with tab_records:
         st.subheader("Complaint Records")
         display_df = df.drop(columns=["closure_days"], errors="ignore").copy()
+        if not st.session_state.is_admin:
+            display_df = display_df.drop(columns=["user_contact", "image_path"], errors="ignore")
         for col in ["created_date", "closed_date"]:
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(
@@ -1991,7 +2007,7 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
             max_chars=80,
             key=f"new_area_f_{location_key}",
         )
-        new_village = ""  # village stored internally from GPS lookup
+        new_village = st.session_state.get(f"new_village_f_{location_key}", "")
 
         camera_file = None
         uploaded_file = None
@@ -2072,22 +2088,22 @@ if st.session_state.is_admin:
     st.subheader("Admin Panel")
 
     # Show deferred notification result from previous action
-    if st.session_state.notify_msg:
-        level, msg = st.session_state.notify_msg
+    if st.session_state.admin_notify_msg:
+        level, msg = st.session_state.admin_notify_msg
         if level == "success":
             st.success(msg)
         elif level == "warning":
             st.warning(msg)
         else:
             st.info(msg)
-        st.session_state.notify_msg = None
+        st.session_state.admin_notify_msg = None
 
     tab_update, tab_delete = st.tabs(["Update Complaint", "Delete Complaint"])
 
     with tab_update:
         if not df.empty:
-            sel_id = st.selectbox("Select Complaint", df["id"].tolist(), key="adm_sel")
-            matching_rows = df[df["id"] == sel_id]
+            sel_id = st.selectbox("Select Complaint", all_df["id"].tolist(), key="adm_sel")
+            matching_rows = all_df[all_df["id"] == sel_id]
             if matching_rows.empty:
                 st.warning("Selected complaint not found in filtered data")
             else:
@@ -2138,6 +2154,7 @@ if st.session_state.is_admin:
                                     complainant_contact,
                                     f"Your complaint <b>{sel_id}</b> has been marked as <b>Closed</b>. "
                                     "Thank you for reaching out - our team has resolved your issue!",
+                                    channel="admin",
                                 )
                         _refresh()
                         st.rerun()
@@ -2147,8 +2164,8 @@ if st.session_state.is_admin:
             st.info("No complaints available.")
 
     with tab_delete:
-        if not df.empty:
-            del_id = st.selectbox("Select to Delete", df["id"].tolist(), key="adm_del")
+        if not all_df.empty:
+            del_id = st.selectbox("Select to Delete", all_df["id"].tolist(), key="adm_del")
             st.warning(f"This will permanently delete **{del_id}**.")
             if st.button("Confirm Delete", type="primary", use_container_width=True, key="adm_del_btn"):
                 try:

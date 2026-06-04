@@ -342,8 +342,6 @@ def insert_complaint(record: dict[str, object]) -> dict[str, object]:
     init_db()
     if not record.get("id"):
         record["id"] = generate_next_id_supabase() if using_supabase() else generate_next_id()
-    if not record.get("id"):
-        record["id"] = generate_next_id()
     record = _normalise_record(record)
     try:
         if using_supabase():

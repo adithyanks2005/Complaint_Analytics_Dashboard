@@ -11,10 +11,14 @@ def load_complaints() -> pd.DataFrame:
     df = read_complaints_df().copy()
     created_date = pd.to_datetime(df["created_date"], errors="coerce")
     closed_date = pd.to_datetime(df["closed_date"], errors="coerce")
+    closure_days = (closed_date - created_date).dt.days
+    # Only count closure days for actually-closed complaints
+    mask_not_closed = df["status"] != "Closed"
+    closure_days[mask_not_closed] = None
     return df.assign(
         created_date=created_date,
         closed_date=closed_date,
-        closure_days=(closed_date - created_date).dt.days,
+        closure_days=closure_days,
     )
 
 
@@ -61,6 +65,12 @@ def get_options(df: pd.DataFrame) -> dict[str, list[str]]:
 
 
 def summary_metrics(df: pd.DataFrame) -> dict[str, float | int]:
+    if "closure_days" not in df.columns:
+        df = df.copy()
+        df["closure_days"] = (
+            pd.to_datetime(df.get("closed_date"), errors="coerce") -
+            pd.to_datetime(df.get("created_date"), errors="coerce")
+        ).dt.days
     total     = int(len(df))
     closed_df = df[df["status"] == "Closed"]
     open_df   = df[df["status"] != "Closed"]
