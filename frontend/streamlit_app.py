@@ -1040,6 +1040,7 @@ if "login_step"      not in st.session_state: st.session_state.login_step      =
 if "login_uid_input" not in st.session_state: st.session_state.login_uid_input = ""
 if "drawer_open"     not in st.session_state: st.session_state.drawer_open     = False
 if "submit_msg"      not in st.session_state: st.session_state.submit_msg      = None
+if "notify_msg"      not in st.session_state: st.session_state.notify_msg      = None
 if "new_complaint_id" not in st.session_state:
     st.session_state.new_complaint_id = None
 if "last_complaint_receipt" not in st.session_state:
@@ -1174,7 +1175,7 @@ def select_valid_option(label: str, options: list[str], key: str, container=st) 
 def notify_user(contact: str, message: str) -> None:
     """Send a notification (email or SMS) to the user based on their contact.
     Routes to Gmail SMTP for emails and Twilio for phone numbers.
-    Falls back to an in-app info banner if credentials are not configured.
+    Stores the result in st.session_state so it survives st.rerun().
     """
     contact = (contact or "").strip()
     if not contact:
@@ -1183,13 +1184,13 @@ def notify_user(contact: str, message: str) -> None:
     if _NOTIFIER_AVAILABLE:
         try:
             _notify_real(contact, subject, message)
-            st.success(f"Notification sent to **{contact}**")
+            st.session_state.notify_msg = ("success", f"Notification sent to **{contact}**")
             return
         except Exception as exc:
-            # Show in-app fallback with the error detail
-            st.warning(f"Could not send notification ({exc}). Showing in-app instead.")
-    # Fallback: show in-app banner
-    st.info(f"📢 Notification for **{contact}**: {message}")
+            st.session_state.notify_msg = ("warning", f"Could not send notification ({exc}). Check your contact details.")
+            return
+    # Fallback: store in-app banner in session state
+    st.session_state.notify_msg = ("info", f"📢 Notification for **{contact}**: {message}")
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -1228,25 +1229,32 @@ def _clean_location_value(value) -> str:
 def format_combined_location(location: dict[str, str]) -> str:
     if location.get("label"):
         return location["label"]
-    filled_parts = [
-        (field, location.get(field))
-        for field in LOCATION_FIELDS
-        if location.get(field)
-    ]
-    if len(filled_parts) == 1:
-        field, value = filled_parts[0]
-        return value
-    parts = [value for _, value in filled_parts]
-    label = ", ".join(part for part in parts if part)
-    if label:
-        return label
-    for field in LOCATION_FIELDS:
-        if location.get(field):
-            return location[field]
+    # Show the most specific field with its parent for context
+    # e.g. "T. Nagar (Chennai)" or just "Chennai" if no area
+    area = location.get("area", "")
+    municipality = location.get("municipality", "")
+    district = location.get("district", "")
+    state = location.get("state", "")
+
+    if area:
+        # Show area with district as context if available
+        parent = district or municipality or state
+        return f"{area} ({parent})" if parent else area
+    if municipality:
+        parent = district or state
+        return f"{municipality} ({parent})" if parent else municipality
+    if district:
+        return f"{district} ({state})" if state else district
+    if state:
+        return state
     return "Select location"
 
 
 def build_combined_location_options(df: pd.DataFrame, area_options: list[str]) -> list[dict[str, str]]:
+    """Build location filter options from data actually present in the database.
+    Only includes locations that have at least one complaint record.
+    Deduplicates by normalised key and sorts alphabetically.
+    """
     options: list[dict[str, str]] = []
     seen: set[tuple[str, ...]] = set()
 
@@ -1264,8 +1272,18 @@ def build_combined_location_options(df: pd.DataFrame, area_options: list[str]) -
         for _, row in df.iterrows():
             add_location({field: row.get(field, "") for field in LOCATION_FIELDS})
 
+    # Only add bare-area entries for areas that are NOT already represented in
+    # the DB rows above, to avoid duplicates like ("Tambaram") appearing alongside
+    # ("Tamil Nadu, Chennai, Chennai Corporation, Tambaram").
+    existing_areas = {
+        cleaned_area.casefold()
+        for entry in options
+        for cleaned_area in [entry.get("area", "")]
+        if cleaned_area
+    }
     for area in area_options:
-        add_location({"area": area})
+        if area.strip().casefold() not in existing_areas:
+            add_location({"area": area})
 
     return sorted(options, key=format_combined_location)
 
@@ -1277,7 +1295,8 @@ with st.sidebar:
     all_df = load_all()
     saved_areas = all_df["area"].dropna().astype(str).unique().tolist()
     areas      = build_area_options(saved_areas)
-    combined_locations = build_combined_location_options(all_df, areas)
+    # For the filter dropdown, only use areas actually present in the data
+    combined_locations = build_combined_location_options(all_df, [])
     location_filter_options = [{"label": "All locations"}, *combined_locations]
     state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
     categories = sorted({"General", *all_df["category"].dropna().unique().tolist()})
@@ -1386,7 +1405,8 @@ trend_df = (
 ) if not df.empty else pd.DataFrame()
 
 area_df = (
-    df.groupby("area")
+    df[~df["area"].isin(GENERIC_AREA_LABELS)]
+    .groupby("area")
     .agg(complaints=("id","count"), avg_closure_days=("closure_days","mean"))
     .reset_index().sort_values("complaints", ascending=False)
 ) if not df.empty else pd.DataFrame()
@@ -1728,6 +1748,15 @@ with main_col:
         if st.session_state.submit_msg:
             st.success(st.session_state.submit_msg)
             st.session_state.submit_msg = None
+        if st.session_state.notify_msg:
+            level, msg = st.session_state.notify_msg
+            if level == "success":
+                st.success(msg)
+            elif level == "warning":
+                st.warning(msg)
+            else:
+                st.info(msg)
+            st.session_state.notify_msg = None
         if st.session_state.last_complaint_receipt:
             receipt = st.session_state.last_complaint_receipt
             r1, r2, r3, r4 = st.columns(4)
@@ -1777,24 +1806,18 @@ with main_col:
             try:
                 _lat = float(_qp["gps_lat"])
                 _lng = float(_qp["gps_lng"])
-                
-                # Use Google Maps Geocoding API for reverse geocoding
+
                 import requests as _req
-                import os
-                
-                google_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-                google_maps_success = False
-                
+
                 # Try Google Maps API first
+                google_api_key = os.getenv("GOOGLE_MAPS_API_KEY", "")
+                google_maps_success = False
+
                 if google_api_key and google_api_key != "YOUR_GOOGLE_MAPS_API_KEY_HERE":
                     try:
                         _r = _req.get(
                             "https://maps.googleapis.com/maps/api/geocode/json",
-                            params={
-                                "latlng": f"{_lat},{_lng}",
-                                "key": google_api_key,
-                                "language": "en"
-                            },
+                            params={"latlng": f"{_lat},{_lng}", "key": google_api_key, "language": "en"},
                             timeout=10,
                         )
                         if _r.status_code == 200:
@@ -1802,28 +1825,21 @@ with main_col:
                             if _geo_data.get("status") == "OK" and _geo_data.get("results"):
                                 _result = _geo_data["results"][0]
                                 _components = _result.get("address_components", [])
-                                
-                                # Parse Google Maps address components
-                                _gps_state = ""
-                                _gps_district = ""
-                                _gps_muni = ""
-                                _gps_area = ""
-                                
+                                _gps_state = _gps_district = _gps_muni = _gps_area = ""
                                 for comp in _components:
                                     types = comp.get("types", [])
                                     name = comp.get("long_name", "")
-                                    
-                                    if "administrative_area_level_1" in types:  # State
+                                    if "administrative_area_level_1" in types:
                                         _gps_state = name
-                                    elif "administrative_area_level_2" in types:  # District
+                                    elif "administrative_area_level_2" in types:
                                         _gps_district = name
-                                    elif "administrative_area_level_3" in types or "locality" in types:  # Municipality
-                                        _gps_muni = name
-                                    elif "sublocality_level_1" in types or "neighborhood" in types:  # Area
-                                        _gps_area = name
-                                
+                                    elif "administrative_area_level_3" in types or "locality" in types:
+                                        if not _gps_muni:
+                                            _gps_muni = name
+                                    elif "sublocality_level_1" in types or "neighborhood" in types:
+                                        if not _gps_area:
+                                            _gps_area = name
                                 _gps_display = _result.get("formatted_address", "")[:70]
-                                
                                 if _gps_state:
                                     st.session_state[f"new_state_f_{location_key}"] = _gps_state
                                 if _gps_district:
@@ -1832,17 +1848,12 @@ with main_col:
                                     st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
                                 if _gps_area:
                                     st.session_state[f"new_area_f_{location_key}"] = _gps_area
-                                
                                 st.session_state[gps_key] = _gps_display
                                 google_maps_success = True
-                            else:
-                                print(f"Google Maps API Error: {_geo_data.get('status')} - {_geo_data.get('error_message', 'Unknown error')}")
-                        else:
-                            print(f"Google Maps HTTP Error: {_r.status_code}")
-                    except Exception as e:
-                        print(f"Google Maps Exception: {str(e)}")
-                
-                # Fallback to Nominatim if Google Maps failed or no API key
+                    except Exception:
+                        pass
+
+                # Fallback to Nominatim
                 if not google_maps_success:
                     try:
                         _r = _req.get(
@@ -1868,105 +1879,79 @@ with main_col:
                             if _gps_area:
                                 st.session_state[f"new_area_f_{location_key}"] = _gps_area
                             st.session_state[gps_key] = _gps_display
-                        else:
-                            print(f"Nominatim HTTP Error: {_r.status_code}")
-                    except Exception as e:
-                        print(f"Nominatim Exception: {str(e)}")
-                        
+                    except Exception:
+                        pass
+
                 st.query_params.clear()
                 st.rerun()
-            except Exception as _e:
-                print(f"GPS Processing Error: {str(_e)}")
+            except Exception:
                 st.query_params.clear()
 
-        # ── GPS button rendered as self-contained iframe component ─────────────
-        # The iframe calls navigator.geolocation then navigates parent window
-        # with ?gps_lat=...&gps_lng=... which Streamlit picks up on rerun.
+        # ── GPS button ─────────────────────────────────────────────────────────
         _gps_done = bool(st.session_state.get(gps_key))
         _btn_label = "✅ Location Detected" if _gps_done else "📍 Use My Location"
         _btn_color = "#10b981" if _gps_done else "#6366f1"
 
-        components.html(f"""
-<!DOCTYPE html>
+        components.html(f"""<!DOCTYPE html>
 <html>
 <head>
 <style>
   body {{ margin:0; padding:0; background:transparent; font-family:'Outfit',sans-serif; }}
   #gps-btn {{
     width:100%; padding:11px 14px;
-    background: linear-gradient(135deg, {_btn_color}, {_btn_color}dd);
+    background: linear-gradient(135deg, {_btn_color}, {_btn_color}cc);
     color: white; border: none; border-radius: 12px;
     font-weight: 700; font-size: 0.92rem; cursor: pointer;
     transition: opacity 0.2s;
   }}
   #gps-btn:disabled {{ opacity:0.6; cursor:not-allowed; }}
-  #status {{ font-size:0.75rem; color:#94a3b8; margin-top:5px; min-height:18px; }}
-  #debug {{ font-size:0.65rem; color:#64748b; margin-top:3px; font-style: italic; }}
+  #status {{ font-size:0.75rem; color:#94a3b8; margin-top:6px; min-height:16px; }}
 </style>
 </head>
 <body>
 <button id="gps-btn" {"disabled" if _gps_done else ""}>{_btn_label}</button>
 <div id="status">{st.session_state.get(gps_key) or ""}</div>
-<div id="debug">Click button to detect location</div>
 <script>
 document.getElementById('gps-btn').addEventListener('click', function() {{
   var btn = this;
   var status = document.getElementById('status');
-  var debug = document.getElementById('debug');
-  
   btn.textContent = '⏳ Detecting location…';
   btn.disabled = true;
-  status.textContent = 'Starting GPS detection...';
-  debug.textContent = 'Checking geolocation support...';
+  status.textContent = 'Requesting GPS permission…';
 
   if (!navigator.geolocation) {{
     status.textContent = 'Geolocation not supported by this browser.';
-    debug.textContent = 'Browser does not support geolocation';
     btn.disabled = false;
     btn.textContent = '📍 Use My Location';
     return;
   }}
-  
-  debug.textContent = 'Geolocation supported, requesting permission...';
-  status.textContent = 'Requesting GPS permission…';
 
   navigator.geolocation.getCurrentPosition(
     function(pos) {{
       var lat = pos.coords.latitude.toFixed(6);
       var lng = pos.coords.longitude.toFixed(6);
-      status.textContent = 'Got coordinates: ' + lat + ', ' + lng;
-      debug.textContent = 'Redirecting to process location...';
-      
-      // Add delay to show message
-      setTimeout(function() {{
-        var url = new URL(window.parent.location.href);
-        url.searchParams.set('gps_lat', lat);
-        url.searchParams.set('gps_lng', lng);
-        window.parent.location.href = url.toString();
-      }}, 500);
+      status.textContent = '📌 Got location, filling in details…';
+      var url = new URL(window.parent.location.href);
+      url.searchParams.set('gps_lat', lat);
+      url.searchParams.set('gps_lng', lng);
+      window.parent.location.href = url.toString();
     }},
     function(err) {{
       btn.disabled = false;
       btn.textContent = '📍 Use My Location';
       var msgs = {{
-        1: 'Permission denied. Please allow location access.',
-        2: 'Position unavailable. Check GPS/Wi-Fi.',
-        3: 'Timed out. Try again or check network.'
+        1: 'Permission denied — please allow location access in your browser.',
+        2: 'Position unavailable. Check GPS / Wi-Fi.',
+        3: 'Timed out. Try again.'
       }};
-      status.textContent = msgs[err.code] || 'Error: ' + err.message;
-      debug.textContent = 'Error code: ' + err.code + ' - ' + err.message;
+      status.textContent = msgs[err.code] || ('Location error: ' + err.message);
     }},
-    {{ 
-      enableHighAccuracy: true, 
-      timeout: 15000, 
-      maximumAge: 0 
-    }}
+    {{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }}
   );
 }});
 </script>
 </body>
-</html>
-""", height=90)
+</html>""", height=80)
 
         # ── Only Complaint ID row (no pincode) ────────────────────────────────────
         new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
@@ -2069,6 +2054,17 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
 if st.session_state.is_admin:
     st.markdown("---")
     st.subheader("Admin Panel")
+
+    # Show deferred notification result from previous action
+    if st.session_state.notify_msg:
+        level, msg = st.session_state.notify_msg
+        if level == "success":
+            st.success(msg)
+        elif level == "warning":
+            st.warning(msg)
+        else:
+            st.info(msg)
+        st.session_state.notify_msg = None
 
     tab_update, tab_delete = st.tabs(["Update Complaint", "Delete Complaint"])
 
