@@ -1974,64 +1974,6 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
         # ── Show location detection status ────────────────────────────────────────
         if st.session_state.get(gps_key):
             st.caption(f"✓ GPS location detected: {st.session_state[gps_key]} — edit fields below if needed")
-        
-        # ── Debug section for testing API ─────────────────────────────────────────
-        with st.expander("🔧 Debug Location Detection", expanded=False):
-            st.write("**Test location detection manually:**")
-            test_col1, test_col2 = st.columns(2)
-            
-            test_lat = test_col1.number_input("Test Latitude", value=13.0827, format="%.6f", key="test_lat")
-            test_lng = test_col2.number_input("Test Longitude", value=80.2707, format="%.6f", key="test_lng")
-            
-            if st.button("🧪 Test Location API", key="test_location"):
-                import requests as _req
-                import os
-                
-                with st.spinner("Testing location APIs..."):
-                    google_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
-                    
-                    # Test Google Maps API
-                    st.write("**Google Maps API Test:**")
-                    if google_api_key:
-                        try:
-                            _r = _req.get(
-                                "https://maps.googleapis.com/maps/api/geocode/json",
-                                params={
-                                    "latlng": f"{test_lat},{test_lng}",
-                                    "key": google_api_key,
-                                    "language": "en"
-                                },
-                                timeout=10,
-                            )
-                            if _r.status_code == 200:
-                                _data = _r.json()
-                                if _data.get("status") == "OK":
-                                    st.success(f"✅ Google Maps API working: {_data['results'][0]['formatted_address']}")
-                                else:
-                                    st.error(f"❌ Google Maps API error: {_data.get('status')} - {_data.get('error_message', 'Unknown')}")
-                            else:
-                                st.error(f"❌ HTTP Error: {_r.status_code}")
-                        except Exception as e:
-                            st.error(f"❌ Exception: {str(e)}")
-                    else:
-                        st.warning("⚠️ No Google Maps API key found")
-                    
-                    # Test Nominatim API
-                    st.write("**Nominatim API Test:**")
-                    try:
-                        _r = _req.get(
-                            "https://nominatim.openstreetmap.org/reverse",
-                            params={"lat": test_lat, "lon": test_lng, "format": "json"},
-                            headers={"User-Agent": "ComplaintDashboard/1.0"},
-                            timeout=8,
-                        )
-                        if _r.status_code == 200:
-                            _data = _r.json()
-                            st.success(f"✅ Nominatim API working: {_data.get('display_name', 'N/A')}")
-                        else:
-                            st.error(f"❌ Nominatim HTTP Error: {_r.status_code}")
-                    except Exception as e:
-                        st.error(f"❌ Nominatim Exception: {str(e)}")
 
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
         state_col, district_col = st.columns([1.1, 1.1])

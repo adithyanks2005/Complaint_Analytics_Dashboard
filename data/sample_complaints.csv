@@ -1,51 +1,51 @@
-id,created_date,closed_date,area,category,priority,status,description
-CMP-001,2025-01-03,2025-01-07,North Zone,Water Supply,High,Closed,No drinking water in ward 12 for two days
-CMP-002,2025-01-09,2025-01-12,South Zone,Road Damage,Medium,Closed,Potholes near bus stand
-CMP-003,2025-01-18,2025-01-25,East Zone,Garbage,Medium,Closed,Garbage not collected from market street
-CMP-004,2025-02-02,2025-02-11,West Zone,Street Light,Low,Closed,Street lights not working near park
-CMP-005,2025-02-10,2025-02-18,Central Zone,Drainage,High,Closed,Blocked drain causing flooding near school
-CMP-006,2025-02-14,2025-02-20,North Zone,Road Damage,Medium,Closed,Road cave-in near highway junction
-CMP-007,2025-02-20,2025-03-01,South Zone,Water Supply,High,Closed,Water pipe burst on main road
-CMP-008,2025-03-01,2025-03-08,East Zone,Street Light,Low,Closed,Street light pole damaged by vehicle
-CMP-009,2025-03-05,2025-03-14,West Zone,Garbage,Medium,Closed,Overflowing garbage bins near market
-CMP-010,2025-03-12,2025-03-20,Central Zone,Road Damage,High,Closed,Large pothole causing accidents
-CMP-011,2025-03-18,2025-03-28,North Zone,Drainage,Medium,Closed,Drain overflow during rain
-CMP-012,2025-04-01,2025-04-09,South Zone,Water Supply,High,Closed,No water supply for three days
-CMP-013,2025-04-05,2025-04-15,East Zone,Road Damage,Low,Closed,Minor road crack near school
-CMP-014,2025-04-10,2025-04-18,West Zone,Garbage,Medium,Closed,Garbage dumped on roadside
-CMP-015,2025-04-15,2025-04-25,Central Zone,Street Light,Low,Closed,Streetlight flickering at night
-CMP-016,2025-05-02,2025-05-10,North Zone,Water Supply,High,Closed,Contaminated water supply reported
-CMP-017,2025-05-08,2025-05-18,South Zone,Drainage,High,Closed,Sewage overflow on residential street
-CMP-018,2025-05-14,2025-05-22,East Zone,Garbage,Medium,Closed,Garbage truck not visiting area
-CMP-019,2025-05-20,2025-05-30,West Zone,Road Damage,Medium,Closed,Road surface broken near bridge
-CMP-020,2025-06-01,2025-06-10,Central Zone,Water Supply,High,Closed,Low water pressure in entire zone
-CMP-021,2025-06-05,2025-06-15,North Zone,Street Light,Low,Closed,Multiple lights out on main road
-CMP-022,2025-06-12,2025-06-22,South Zone,Road Damage,High,Closed,Road collapsed near market area
-CMP-023,2025-06-18,2025-06-28,East Zone,Drainage,Medium,Closed,Blocked storm drain near park
-CMP-024,2025-07-01,2025-07-10,West Zone,Water Supply,High,Closed,Water supply disrupted for five days
-CMP-025,2025-07-08,2025-07-18,Central Zone,Garbage,Medium,Closed,Waste not collected for a week
-CMP-026,2025-07-15,2025-07-25,North Zone,Road Damage,Medium,Closed,Pothole on school road
-CMP-027,2025-08-01,2025-08-12,South Zone,Street Light,Low,Closed,Street light column leaning dangerously
-CMP-028,2025-08-10,2025-08-20,East Zone,Water Supply,High,Closed,Pipeline leakage wasting water
-CMP-029,2025-08-18,2025-08-28,West Zone,Drainage,High,Closed,Drain blocked causing road flooding
-CMP-030,2025-09-01,2025-09-11,Central Zone,Road Damage,Medium,Closed,Speed breaker damaged and dangerous
-CMP-031,2025-09-10,2025-09-20,North Zone,Garbage,Low,Closed,Garbage bins not emptied for days
-CMP-032,2025-09-18,2025-09-28,South Zone,Water Supply,High,Closed,No water in residential colony
-CMP-033,2025-10-01,2025-10-12,East Zone,Street Light,Medium,Closed,Entire street dark at night
-CMP-034,2025-10-10,2025-10-22,West Zone,Road Damage,High,Closed,Road completely broken near hospital
-CMP-035,2025-10-20,2025-10-30,Central Zone,Drainage,Medium,Closed,Drain overflow near bus stop
-CMP-036,2025-11-01,2025-11-12,North Zone,Water Supply,High,Closed,Water supply cut without notice
-CMP-037,2025-11-10,2025-11-20,South Zone,Garbage,Medium,Closed,Illegal dumping near school
-CMP-038,2025-11-18,2025-11-28,East Zone,Road Damage,Low,Closed,Minor pothole near temple
-CMP-039,2025-12-01,2025-12-12,West Zone,Street Light,Medium,Closed,Street lights not working in colony
-CMP-040,2025-12-10,2025-12-20,Central Zone,Water Supply,High,Closed,Water contamination complaint
-CMP-041,2026-01-05,2026-01-15,North Zone,Drainage,High,Closed,Drain blocked near market
-CMP-042,2026-01-12,2026-01-22,South Zone,Road Damage,Medium,Closed,Road damaged after heavy rain
-CMP-043,2026-02-01,2026-02-10,East Zone,Water Supply,High,Closed,No water supply for two days
-CMP-044,2026-02-10,2026-02-20,West Zone,Garbage,Medium,Closed,Garbage not collected in ward
-CMP-045,2026-03-01,2026-03-12,Central Zone,Street Light,Low,In Progress,Street light out near park
-CMP-046,2026-03-10,2026-03-22,North Zone,Road Damage,High,In Progress,Large pothole causing accidents on main road
-CMP-047,2026-04-01,2026-04-12,South Zone,Water Supply,High,Pending,No water supply reported by residents
-CMP-048,2026-04-10,2026-04-22,East Zone,Drainage,Medium,Pending,Blocked drain near residential area
-CMP-049,2026-04-18,2026-04-30,West Zone,Garbage,Low,Pending,Garbage bins overflowing near market
-CMP-050,2026-05-01,2026-05-10,Central Zone,Road Damage,High,Pending,Road surface broken near school entrance
+id,created_date,closed_date,state,district,municipality,village,area,category,priority,status,description,user_contact,image_path
+CMP-001,2025-01-03,2025-01-07,Tamil Nadu,Chennai,Chennai Corporation,,T. Nagar,Water Supply,High,Closed,No drinking water in ward 12 for two days,,
+CMP-002,2025-01-09,2025-01-12,Tamil Nadu,Chennai,Chennai Corporation,,Adyar,Road Damage,Medium,Closed,Potholes near bus stand,,
+CMP-003,2025-01-18,2025-01-25,Tamil Nadu,Chennai,Chennai Corporation,,Velachery,Garbage,Medium,Closed,Garbage not collected from market street,,
+CMP-004,2025-02-02,2025-02-11,Tamil Nadu,Chennai,Chennai Corporation,,Anna Nagar,Street Light,Low,Closed,Street lights not working near park,,
+CMP-005,2025-02-10,2025-02-18,Tamil Nadu,Chennai,Chennai Corporation,,Mylapore,Drainage,High,Closed,Blocked drain causing flooding near school,,
+CMP-006,2025-02-14,2025-02-20,Tamil Nadu,Chennai,Chennai Corporation,,Tambaram,Road Damage,Medium,Closed,Road cave-in near highway junction,,
+CMP-007,2025-02-20,2025-03-01,Tamil Nadu,Chennai,Chennai Corporation,,Porur,Water Supply,High,Closed,Water pipe burst on main road,,
+CMP-008,2025-03-01,2025-03-08,Tamil Nadu,Chennai,Chennai Corporation,,Sholinganallur,Street Light,Low,Closed,Street light pole damaged by vehicle,,
+CMP-009,2025-03-05,2025-03-14,Tamil Nadu,Chennai,Chennai Corporation,,Perungudi,Garbage,Medium,Closed,Overflowing garbage bins near market,,
+CMP-010,2025-03-12,2025-03-20,Tamil Nadu,Chennai,Chennai Corporation,,Guindy,Road Damage,High,Closed,Large pothole causing accidents,,
+CMP-011,2025-03-18,2025-03-28,Tamil Nadu,Chennai,Chennai Corporation,,Nungambakkam,Drainage,Medium,Closed,Drain overflow during rain,,
+CMP-012,2025-04-01,2025-04-09,Tamil Nadu,Chennai,Chennai Corporation,,Kodambakkam,Water Supply,High,Closed,No water supply for three days,,
+CMP-013,2025-04-05,2025-04-15,Tamil Nadu,Chennai,Chennai Corporation,,Vadapalani,Road Damage,Low,Closed,Minor road crack near school,,
+CMP-014,2025-04-10,2025-04-18,Tamil Nadu,Chennai,Chennai Corporation,,Ashok Nagar,Garbage,Medium,Closed,Garbage dumped on roadside,,
+CMP-015,2025-04-15,2025-04-25,Tamil Nadu,Chennai,Chennai Corporation,,K.K. Nagar,Street Light,Low,Closed,Streetlight flickering at night,,
+CMP-016,2025-05-02,2025-05-10,Tamil Nadu,Chennai,Chennai Corporation,,Saidapet,Water Supply,High,Closed,Contaminated water supply reported,,
+CMP-017,2025-05-08,2025-05-18,Tamil Nadu,Chennai,Chennai Corporation,,Teynampet,Drainage,High,Closed,Sewage overflow on residential street,,
+CMP-018,2025-05-14,2025-05-22,Tamil Nadu,Chennai,Chennai Corporation,,Egmore,Garbage,Medium,Closed,Garbage truck not visiting area,,
+CMP-019,2025-05-20,2025-05-30,Tamil Nadu,Chennai,Chennai Corporation,,Alwarpet,Road Damage,Medium,Closed,Road surface broken near bridge,,
+CMP-020,2025-06-01,2025-06-10,Tamil Nadu,Chennai,Chennai Corporation,,Royapettah,Water Supply,High,Closed,Low water pressure in entire area,,
+CMP-021,2025-06-05,2025-06-15,Tamil Nadu,Chennai,Chennai Corporation,,Kilpauk,Street Light,Low,Closed,Multiple lights out on main road,,
+CMP-022,2025-06-12,2025-06-22,Tamil Nadu,Chennai,Chennai Corporation,,Purasawalkam,Road Damage,High,Closed,Road collapsed near market area,,
+CMP-023,2025-06-18,2025-06-28,Tamil Nadu,Chennai,Chennai Corporation,,Chetpet,Drainage,Medium,Closed,Blocked storm drain near park,,
+CMP-024,2025-07-01,2025-07-10,Tamil Nadu,Chennai,Chennai Corporation,,Gopalapuram,Water Supply,High,Closed,Water supply disrupted for five days,,
+CMP-025,2025-07-08,2025-07-18,Tamil Nadu,Chennai,Chennai Corporation,,Besant Nagar,Garbage,Medium,Closed,Waste not collected for a week,,
+CMP-026,2025-07-15,2025-07-25,Tamil Nadu,Chennai,Chennai Corporation,,Thiruvanmiyur,Road Damage,Medium,Closed,Pothole on school road,,
+CMP-027,2025-08-01,2025-08-12,Tamil Nadu,Chennai,Chennai Corporation,,R.A. Puram,Street Light,Low,Closed,Street light column leaning dangerously,,
+CMP-028,2025-08-10,2025-08-20,Tamil Nadu,Chennai,Chennai Corporation,,Mandaveli,Water Supply,High,Closed,Pipeline leakage wasting water,,
+CMP-029,2025-08-18,2025-08-28,Tamil Nadu,Chennai,Chennai Corporation,,Indira Nagar,Drainage,High,Closed,Drain blocked causing road flooding,,
+CMP-030,2025-09-01,2025-09-11,Tamil Nadu,Chennai,Chennai Corporation,,Kotturpuram,Road Damage,Medium,Closed,Speed breaker damaged and dangerous,,
+CMP-031,2025-09-10,2025-09-20,Tamil Nadu,Chennai,Chennai Corporation,,Chrompet,Garbage,Low,Closed,Garbage bins not emptied for days,,
+CMP-032,2025-09-18,2025-09-28,Tamil Nadu,Chennai,Chennai Corporation,,Pallavaram,Water Supply,High,Closed,No water in residential colony,,
+CMP-033,2025-10-01,2025-10-12,Tamil Nadu,Chennai,Chennai Corporation,,Medavakkam,Street Light,Medium,Closed,Entire street dark at night,,
+CMP-034,2025-10-10,2025-10-22,Tamil Nadu,Chennai,Chennai Corporation,,Thoraipakkam,Road Damage,High,Closed,Road completely broken near hospital,,
+CMP-035,2025-10-20,2025-10-30,Tamil Nadu,Chennai,Chennai Corporation,,OMR,Drainage,Medium,Closed,Drain overflow near bus stop,,
+CMP-036,2025-11-01,2025-11-12,Tamil Nadu,Chennai,Chennai Corporation,,ECR,Water Supply,High,Closed,Water supply cut without notice,,
+CMP-037,2025-11-10,2025-11-20,Tamil Nadu,Chennai,Chennai Corporation,,Mahabalipuram,Garbage,Medium,Closed,Illegal dumping near school,,
+CMP-038,2025-11-18,2025-11-28,Tamil Nadu,Chennai,Chennai Corporation,,Kelambakkam,Road Damage,Low,Closed,Minor pothole near temple,,
+CMP-039,2025-12-01,2025-12-12,Tamil Nadu,Chennai,Chennai Corporation,,Siruseri,Street Light,Medium,Closed,Street lights not working in colony,,
+CMP-040,2025-12-10,2025-12-20,Tamil Nadu,Chennai,Chennai Corporation,,Navalur,Water Supply,High,Closed,Water contamination complaint,,
+CMP-041,2026-01-05,2026-01-15,Tamil Nadu,Chennai,Chennai Corporation,,Perumbakkam,Drainage,High,Closed,Drain blocked near market,,
+CMP-042,2026-01-12,2026-01-22,Tamil Nadu,Chennai,Chennai Corporation,,Karapakkam,Road Damage,Medium,Closed,Road damaged after heavy rain,,
+CMP-043,2026-02-01,2026-02-10,Tamil Nadu,Chennai,Chennai Corporation,,Okkiyam Thoraipakkam,Water Supply,High,Closed,No water supply for two days,,
+CMP-044,2026-02-10,2026-02-20,Tamil Nadu,Chennai,Chennai Corporation,,Semmenchery,Garbage,Medium,Closed,Garbage not collected in ward,,
+CMP-045,2026-03-01,2026-03-12,Tamil Nadu,Chennai,Chennai Corporation,,Injambakkam,Street Light,Low,In Progress,Street light out near park,,
+CMP-046,2026-03-10,2026-03-22,Tamil Nadu,Chennai,Chennai Corporation,,Kovalam,Road Damage,High,In Progress,Large pothole causing accidents on main road,,
+CMP-047,2026-04-01,2026-04-12,Tamil Nadu,Chennai,Chennai Corporation,,Muttukadu,Water Supply,High,Pending,No water supply reported by residents,,
+CMP-048,2026-04-10,2026-04-22,Tamil Nadu,Chennai,Chennai Corporation,,Uthandi,Drainage,Medium,Pending,Blocked drain near residential area,,
+CMP-049,2026-04-18,2026-04-30,Tamil Nadu,Chennai,Chennai Corporation,,Kanathur,Garbage,Low,Pending,Garbage bins overflowing near market,,
+CMP-050,2026-05-01,2026-05-10,Tamil Nadu,Chennai,Chennai Corporation,,Chengalpattu,Road Damage,High,Pending,Road surface broken near school entrance,,
