@@ -1588,9 +1588,9 @@ with main_col:
             selected_location = {
                 "state": "" if new_state == "Not provided" else new_state,
                 "district": "" if new_district == "Not provided" else new_district,
-                "municipality": "" if new_municipality == "Not provided" else new_municipality,
-                "area": "" if new_area == "Not provided" else new_area,
-                "village": "" if new_village == "Not provided" else new_village,
+                "municipality": new_municipality.strip(),
+                "area": new_area.strip(),
+                "village": new_village.strip() if new_village else "",
                 "pincode": new_pincode.strip(),
             }
             final_area = next(
@@ -1706,30 +1706,45 @@ with main_col:
             st.session_state.new_complaint_id = get_next_complaint_id()
 
         location_key = st.session_state.form_key_f
-        st.markdown("Location")
-        
+        st.markdown("#### Location")
+
         id_col, pincode_col = st.columns([1, 1.5])
         new_id = id_col.text_input("ID", value=st.session_state.new_complaint_id, disabled=True)
         new_pincode = pincode_col.text_input(
-            "Pincode (optional)", 
-            max_chars=6, 
+            "Pincode (optional)",
+            max_chars=6,
             key=f"new_pincode_f_{location_key}",
             placeholder="Enter 6-digit pincode to auto-fill location",
-            help="Enter a 6-digit pincode to auto-fill location details"
+            help="Enter a valid 6-digit pincode to auto-fill State, District, Municipality and Area"
         )
-        
+
+        # ── Pincode auto-fill ──────────────────────────────────────────────────
         location_auto_filled = False
         if new_pincode and is_valid_pincode(new_pincode):
             auto_fill_result = auto_fill_location_from_pincode(new_pincode, location_key)
             if auto_fill_result:
-                st.session_state[f"new_state_f_{location_key}"] = auto_fill_result.get("state", "")
-                st.session_state[f"new_district_f_{location_key}"] = auto_fill_result.get("district", "")
+                _state_val = auto_fill_result.get("state", "")
+                _dist_val  = auto_fill_result.get("district", "")
+                _muni_val  = auto_fill_result.get("municipality", "")
+                _village_val = auto_fill_result.get("village", "")
+                if _state_val:
+                    st.session_state[f"new_state_f_{location_key}"] = _state_val
+                if _dist_val:
+                    st.session_state[f"new_district_f_{location_key}"] = _dist_val
+                # municipality and area pre-fill via session state for text inputs
+                if _muni_val:
+                    st.session_state[f"new_municipality_f_{location_key}"] = _muni_val
+                if _village_val:
+                    st.session_state[f"new_area_f_{location_key}"] = _village_val
                 location_auto_filled = True
-        
-        state_col, district_col = st.columns([1.1, 1.1])
+
+        if location_auto_filled:
+            st.caption("✓ Location auto-filled from pincode — edit below if needed")
+
         state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
+        state_col, district_col = st.columns([1.1, 1.1])
         new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
-        
+
         district_options = build_cascading_location_options(
             all_df,
             "district",
@@ -1738,14 +1753,19 @@ with main_col:
         )
         new_district = select_valid_option("District", district_options, f"new_district_f_{location_key}", district_col)
 
-        new_area = st.text_input(
-            "Specific Area / Locality (e.g., Street name, Ward, Landmark)",
-            placeholder="Enter the specific location of the issue",
-            max_chars=80,
-            key=f"new_area_f_{location_key}"
+        muni_col, area_col = st.columns([1.1, 1.1])
+        new_municipality = muni_col.text_input(
+            "Municipality",
+            placeholder="Auto-filled from pincode or enter manually",
+            key=f"new_municipality_f_{location_key}",
         )
-        new_municipality = "Not provided"
-        new_village = "Not provided"
+        new_area = area_col.text_input(
+            "Area / Locality",
+            placeholder="Auto-filled from pincode or enter manually",
+            max_chars=80,
+            key=f"new_area_f_{location_key}",
+        )
+        new_village = ""  # village stored internally from pincode lookup
 
         camera_file = None
         uploaded_file = None
@@ -1760,16 +1780,11 @@ with main_col:
         )
 
         if image_mode == "Take photo":
-            try:
-                from streamlit_back_camera_input import back_camera_input
-                camera_file = back_camera_input(
-                    key=f"new_camera_f_{st.session_state.form_key_f}",
-                )
-            except Exception:
-                camera_file = st.camera_input(
-                    "Take Photo",
-                    key=f"new_camera_f_{st.session_state.form_key_f}",
-                )
+            # st.camera_input renders a visible "Take Photo" button natively
+            camera_file = st.camera_input(
+                "Take Photo",
+                key=f"new_camera_f_{st.session_state.form_key_f}",
+            )
             if camera_file:
                 st.image(camera_file, caption="Photo attached — retake anytime before submitting", use_container_width=True)
                 st.success("Photo ready.")
