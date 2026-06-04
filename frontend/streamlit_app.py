@@ -1621,8 +1621,6 @@ with main_col:
                 st.error("Complaint date cannot be in the future")
             elif image_mode != "No image" and not image_file:
                 st.error("Please attach an image (take a photo or upload a file) before submitting")
-            elif image_mode != "No image" and not photo_verified:
-                st.error("Verify the attached image before submitting")
             elif image_file and len(image_file.getvalue()) > MAX_IMAGE_BYTES:
                 st.error("Image must be 5 MB or smaller")
             elif len(final_desc) < 10:
@@ -1762,7 +1760,7 @@ with main_col:
         )
 
         if image_mode == "Take photo":
-            st.info("Point your camera at the issue and click **Take Photo**")
+            st.info("Point your camera at the issue and click **Take Photo**. To retake, click the camera again.")
             try:
                 from streamlit_back_camera_input import back_camera_input
                 camera_file = back_camera_input(
@@ -1774,16 +1772,9 @@ with main_col:
                     key=f"new_camera_f_{st.session_state.form_key_f}",
                 )
             if camera_file:
-                col1, col2 = st.columns([2, 1])
-                col1.image(camera_file, caption="Photo Preview", use_container_width=True)
-                photo_verified = col2.checkbox(
-                    "I verify this photo is accurate and relevant to my complaint",
-                    key=f"verify_camera_f_{st.session_state.form_key_f}",
-                )
-                if photo_verified:
-                    col2.success("Photo verified")
-                else:
-                    col2.warning("Please verify before submitting")
+                st.image(camera_file, caption="Photo attached — retake anytime before submitting", use_container_width=True)
+                st.success("Photo ready. Fill in the details below and submit.")
+            photo_verified = True  # no manual verification step needed
 
         elif image_mode == "Upload file":
             uploaded_file = st.file_uploader(
@@ -1793,17 +1784,9 @@ with main_col:
                 help="Select an image file to attach to your complaint",
             )
             if uploaded_file:
-                col1, col2 = st.columns([2, 1])
-                col1.image(uploaded_file, caption="Image Preview", use_container_width=True)
-                col2.success(f"Attached: {uploaded_file.name}")
-                photo_verified = col2.checkbox(
-                    "I verify this image is accurate and relevant to my complaint",
-                    key=f"verify_upload_f_{st.session_state.form_key_f}",
-                )
-                if photo_verified:
-                    col2.success("Image verified")
-                else:
-                    col2.warning("Please verify before submitting")
+                st.image(uploaded_file, caption=f"Attached: {uploaded_file.name}", use_container_width=True)
+                st.success("Image ready. Fill in the details below and submit.")
+            photo_verified = True  # no manual verification step needed
 
         with st.form("new_complaint", clear_on_submit=False):
             new_category = st.selectbox("Category", categories, key=f"new_category_f_{st.session_state.form_key_f}")
