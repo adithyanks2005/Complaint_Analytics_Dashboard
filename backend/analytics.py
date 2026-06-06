@@ -68,8 +68,8 @@ def summary_metrics(df: pd.DataFrame) -> dict[str, float | int]:
     if "closure_days" not in df.columns:
         df = df.copy()
         df["closure_days"] = (
-            pd.to_datetime(df.get("closed_date"), errors="coerce") -
-            pd.to_datetime(df.get("created_date"), errors="coerce")
+            pd.to_datetime(df.get("closed_date"), errors="coerce")
+            - pd.to_datetime(df.get("created_date"), errors="coerce")
         ).dt.days
     total     = int(len(df))
     closed_df = df[df["status"] == "Closed"]

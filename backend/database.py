@@ -64,7 +64,6 @@ def using_supabase() -> bool:
     """True when Supabase configuration is present AND connection has not failed.
     Falls back to SQLite if credentials are invalid or the package errors out.
     """
-    global _supabase_failed
     if _supabase_failed:
         return False
     return bool(SUPABASE_URL and SUPABASE_KEY)
@@ -112,6 +111,13 @@ def _is_duplicate_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return "23505" in msg or "duplicate key" in msg or "unique constraint" in msg
 
+def _is_duplicate_id(conn: sqlite3.Connection, complaint_id: str) -> bool:
+    """Check if a complaint ID already exists in the SQLite DB."""
+    row = conn.execute(
+        "SELECT 1 FROM complaints WHERE id = ?", (complaint_id,)
+    ).fetchone()
+    return row is not None
+
 # ---------------------------------------------------------------------------
 # Schema definition
 # ---------------------------------------------------------------------------
@@ -140,19 +146,29 @@ class DuplicateComplaintError(Exception):
 # ID generation helpers
 # ---------------------------------------------------------------------------
 
+_id_lock = Lock()
+
 def generate_next_id() -> str:
-    """Generate the next sequential complaint ID (e.g. CMP-001)."""
-    with get_connection() as conn:
-        rows = conn.execute("SELECT id FROM complaints").fetchall()
-        highest = 0
-        for row in rows:
-            # row is a tuple like (id,)
-            id_str = str(row[0]).strip()
-            if "-" in id_str:
-                suffix = id_str.split("-")[-1]
-                if suffix.isdigit():
-                    highest = max(highest, int(suffix))
-        return f"CMP-{highest + 1:03d}"
+    """Generate the next sequential complaint ID (e.g. CMP-001).
+
+    Uses a process-level lock combined with a SQLite exclusive transaction
+    so that concurrent callers in the same process (multiple Streamlit sessions)
+    cannot read the same max-ID and produce duplicate complaint IDs.
+    """
+    with _id_lock:
+        with get_connection() as conn:
+            # BEGIN EXCLUSIVE prevents any other SQLite writer from interleaving
+            conn.execute("BEGIN EXCLUSIVE")
+            rows = conn.execute("SELECT id FROM complaints").fetchall()
+            highest = 0
+            for row in rows:
+                id_str = str(row[0]).strip()
+                if "-" in id_str:
+                    suffix = id_str.split("-")[-1]
+                    if suffix.isdigit():
+                        highest = max(highest, int(suffix))
+            conn.execute("COMMIT")
+            return f"CMP-{highest + 1:03d}"
 
 def generate_next_id_supabase() -> str:
     """Generate the next complaint ID from the configured Supabase table."""
@@ -358,7 +374,8 @@ def get_complaint_by_id(complaint_id: str) -> dict[str, object] | None:
 
 def insert_complaint(record: dict[str, object]) -> dict[str, object]:
     init_db()
-    if not record.get("id"):
+    id_was_generated = not bool(record.get("id"))
+    if id_was_generated:
         record["id"] = generate_next_id_supabase() if using_supabase() else generate_next_id()
     record = _normalise_record(record)
     try:
@@ -376,13 +393,25 @@ def insert_complaint(record: dict[str, object]) -> dict[str, object]:
                     raise DuplicateComplaintError from exc
                 _mark_supabase_failed(exc)
                 # Supabase failed – fall through to SQLite
-        with get_connection() as conn:
-            placeholders = ", ".join("?" for _ in COMPLAINT_COLUMNS)
-            cols_sql = ", ".join(COMPLAINT_COLUMNS)
-            conn.execute(
-                f"INSERT INTO complaints ({cols_sql}) VALUES ({placeholders})",
-                tuple(record[col] for col in COMPLAINT_COLUMNS),
-            )
+        with _id_lock:
+            with get_connection() as conn:
+                if _is_duplicate_id(conn, str(record["id"])):
+                    if not id_was_generated:
+                        raise DuplicateComplaintError
+                    # Regenerate generated IDs inside the lock to avoid races.
+                    rows = conn.execute("SELECT id FROM complaints").fetchall()
+                    highest = max(
+                        (int(r[0].split("-")[-1]) for r in rows
+                         if "-" in str(r[0]) and str(r[0]).split("-")[-1].isdigit()),
+                        default=0,
+                    )
+                    record["id"] = f"CMP-{highest + 1:03d}"
+                placeholders = ", ".join("?" for _ in COMPLAINT_COLUMNS)
+                cols_sql = ", ".join(COMPLAINT_COLUMNS)
+                conn.execute(
+                    f"INSERT INTO complaints ({cols_sql}) VALUES ({placeholders})",
+                    tuple(record[col] for col in COMPLAINT_COLUMNS),
+                )
     except DuplicateComplaintError:
         raise
     except Exception as exc:
