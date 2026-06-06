@@ -16,6 +16,15 @@ import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 
+# Ensure Streamlit secrets are available in os.environ for backend/notifier logic
+try:
+    if hasattr(st, "secrets"):
+        for k, v in st.secrets.items():
+            if isinstance(v, str) and k not in os.environ:
+                os.environ[k] = v
+except Exception:
+    pass
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 if not (PROJECT_ROOT / "backend").exists():
     PROJECT_ROOT = PROJECT_ROOT.parent
