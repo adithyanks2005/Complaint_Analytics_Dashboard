@@ -94,6 +94,17 @@ def get_supabase_client():
             raise
     return _supabase_client
 
+
+def _mark_supabase_failed(exc: Exception) -> None:
+    """Disable Supabase for this process after an API/client failure."""
+    global _supabase_failed
+    _supabase_failed = True
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "Supabase request failed (%s) - falling back to SQLite.", exc
+    )
+
+
 def _normalise_record(record: dict[str, object]) -> dict[str, object]:
     return {col: record.get(col) for col in COMPLAINT_COLUMNS}
 
@@ -145,9 +156,13 @@ def generate_next_id() -> str:
 
 def generate_next_id_supabase() -> str:
     """Generate the next complaint ID from the configured Supabase table."""
-    if not using_supabase():
+    if not (SUPABASE_URL and SUPABASE_KEY):
         return generate_next_id()
-    resp = get_supabase_client().table(SUPABASE_TABLE).select("id").execute()
+    try:
+        resp = get_supabase_client().table(SUPABASE_TABLE).select("id").execute()
+    except Exception as exc:
+        _mark_supabase_failed(exc)
+        return generate_next_id()
     ids = [str(record.get("id", "")) for record in (resp.data or [])]
     highest = max(
         (
@@ -182,7 +197,8 @@ def init_db() -> None:
             get_supabase_client()
             _db_initialised = True
             return
-        except Exception:
+        except Exception as exc:
+            _mark_supabase_failed(exc)
             # _supabase_failed is now True; continue to SQLite init below
             pass
     if _db_initialised:
@@ -308,7 +324,8 @@ def read_complaints_df() -> pd.DataFrame:
                 .execute()
             )
             return pd.DataFrame(resp.data or [], columns=COMPLAINT_COLUMNS)
-        except Exception:
+        except Exception as exc:
+            _mark_supabase_failed(exc)
             # _supabase_failed is now True; fall through to SQLite
             pass
     with get_connection() as conn:
@@ -332,7 +349,8 @@ def get_complaint_by_id(complaint_id: str) -> dict[str, object] | None:
                 .execute()
             )
             return _normalise_record(resp.data) if resp.data else None
-        except Exception:
+        except Exception as exc:
+            _mark_supabase_failed(exc)
             pass
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM complaints WHERE id = ?", (complaint_id,)).fetchone()
@@ -356,8 +374,7 @@ def insert_complaint(record: dict[str, object]) -> dict[str, object]:
             except Exception as exc:
                 if _is_duplicate_error(exc):
                     raise DuplicateComplaintError from exc
-                if not _supabase_failed:
-                    raise
+                _mark_supabase_failed(exc)
                 # Supabase failed – fall through to SQLite
         with get_connection() as conn:
             placeholders = ", ".join("?" for _ in COMPLAINT_COLUMNS)
@@ -390,7 +407,8 @@ def update_complaint_record(complaint_id: str, record: dict[str, object]) -> dic
             )
             if resp.data:
                 return _normalise_record(resp.data[0])
-        except Exception:
+        except Exception as exc:
+            _mark_supabase_failed(exc)
             pass  # fall through to SQLite
     with get_connection() as conn:
         set_clause = ", ".join(f"{col} = ?" for col in COMPLAINT_COLUMNS if col != "id")
@@ -412,7 +430,8 @@ def delete_complaint_record(complaint_id: str) -> None:
                 .execute()
             )
             return
-        except Exception:
+        except Exception as exc:
+            _mark_supabase_failed(exc)
             pass  # fall through to SQLite
     with get_connection() as conn:
         conn.execute("DELETE FROM complaints WHERE id = ?", (complaint_id,))

@@ -25,6 +25,13 @@ from backend.analytics import (
 )
 from backend.database import init_db
 from backend.ai_prioritizer import compute_priority
+# Notification helper
+try:
+    from frontend.notifier import notify as _notify_real
+    _NOTIFIER_AVAILABLE = True
+except Exception:
+    _notify_real = None
+    _NOTIFIER_AVAILABLE = False
 from backend.database import (
     DuplicateComplaintError,
     delete_complaint_record,
@@ -293,7 +300,17 @@ def create_complaint(payload: ComplaintCreateInput) -> dict[str, object]:
             "user_contact": payload.user_contact,
             "image_path": payload.image_path,
         }
-        return insert_complaint(complaint_data)
+        # Insert complaint into DB
+        result = insert_complaint(complaint_data)
+        # Send SMS/email notification if possible and contact is a phone number
+        if _NOTIFIER_AVAILABLE and payload.user_contact:
+            try:
+                _notify_real(payload.user_contact, "New Complaint Received", f"Complaint ID {payload.id} has been logged.")
+            except Exception as notif_err:
+                # Log but do not fail the request
+                import logging
+                logging.getLogger(__name__).warning("Notification failed: %s", notif_err)
+        return result
     except DuplicateComplaintError as exc:
         raise HTTPException(status_code=409, detail="Complaint ID already exists") from exc
 

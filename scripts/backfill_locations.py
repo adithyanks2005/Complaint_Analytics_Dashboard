@@ -38,7 +38,7 @@ CSV_PATH = ROOT / "data" / "sample_complaints.csv"
 LOCATION_COLS = ["state", "district", "municipality", "village", "pincode"]
 
 
-def backfill_sqlite() -> None:
+def backfill_sqlite(ref_df: pd.DataFrame) -> None:
     print("Backfilling SQLite database...")
     with get_connection() as conn:
         rows = conn.execute(
@@ -61,7 +61,7 @@ def backfill_sqlite() -> None:
         print(f"  Updated {updated} rows in SQLite.")
 
 
-def backfill_supabase() -> None:
+def backfill_supabase(ref_df: pd.DataFrame) -> None:
     print("Backfilling Supabase table...")
     client = get_supabase_client()
     resp = client.table(SUPABASE_TABLE).select("id,state,district,municipality,village,pincode").execute()
@@ -99,9 +99,9 @@ if __name__ == "__main__":
     ref_df = pd.read_csv(CSV_PATH) if CSV_PATH.exists() else pd.DataFrame()
 
     if using_supabase():
-        backfill_supabase()
+        backfill_supabase(ref_df)
     else:
-        backfill_sqlite()
+        backfill_sqlite(ref_df)
 
     report_missing()
     print("Done.")

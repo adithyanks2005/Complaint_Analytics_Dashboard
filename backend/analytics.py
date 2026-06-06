@@ -14,7 +14,7 @@ def load_complaints() -> pd.DataFrame:
     closure_days = (closed_date - created_date).dt.days
     # Only count closure days for actually-closed complaints
     mask_not_closed = df["status"] != "Closed"
-    closure_days[mask_not_closed] = None
+    closure_days = closure_days.where(~mask_not_closed, other=pd.NA)
     return df.assign(
         created_date=created_date,
         closed_date=closed_date,

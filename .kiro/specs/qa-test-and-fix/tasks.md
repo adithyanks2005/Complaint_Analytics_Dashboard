@@ -46,7 +46,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 ## Bug 1 — `_supabase_failed` state leaks between tests (`test_database.py`)
 
-- [ ] 1. Write bug condition exploration test — Supabase ID state leak
+- [x] 1. Write bug condition exploration test — Supabase ID state leak
   - **Property 1: Bug Condition** - Supabase ID Returns Wrong Value When `_supabase_failed` Is Leaked
   - **CRITICAL**: This test MUST FAIL on unfixed code — failure confirms the bug exists
   - **DO NOT attempt to fix the test or the code when it fails**
@@ -63,7 +63,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
   - Mark task complete when test is written, run on unfixed code, and FAILURE is documented
   - _Requirements: 1.1, 1.2_
 
-- [ ] 2. Write preservation property test — Supabase fallback unaffected (BEFORE fix)
+- [x] 2. Write preservation property test — Supabase fallback unaffected (BEFORE fix)
   - **Property 2: Preservation** - Supabase Fallback Still Reads SQLite When Credentials Are Absent
   - **IMPORTANT**: Follow observation-first methodology — run on UNFIXED code first
   - Use `hypothesis` `@given(st.booleans())` or a parameterised test to cover all states where `using_supabase()` legitimately returns `False`
@@ -78,7 +78,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 ## Bug 2 — `SettingWithCopyWarning` / silent `None` discard (`analytics.py`)
 
-- [ ] 3. Write bug condition exploration test — non-closed `closure_days` not nulled
+- [x] 3. Write bug condition exploration test — non-closed `closure_days` not nulled
   - **Property 3: Bug Condition** - Non-Closed Rows Retain Numeric `closure_days` on Unfixed Code
   - **CRITICAL**: This test MUST FAIL on unfixed code — failure confirms the bug exists
   - **DO NOT attempt to fix the test or the code when it fails**
@@ -96,7 +96,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
   - Mark task complete when test written, run, and FAILURE documented
   - _Requirements: 1.3_
 
-- [ ] 4. Write preservation property test — closed `closure_days` values unchanged (BEFORE fix)
+- [x] 4. Write preservation property test — closed `closure_days` values unchanged (BEFORE fix)
   - **Property 4: Preservation** - All-Closed DataFrames Produce Numerically Identical `closure_days`
   - **IMPORTANT**: Follow observation-first methodology — observe on UNFIXED code
   - Use `hypothesis` with `@given(...)` to generate DataFrames where every row has `status="Closed"` and valid `created_date` / `closed_date` pairs (closed_date ≥ created_date)
@@ -112,7 +112,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 ## Bug 3 — `NameError: ref_df` in `backfill_locations.py`
 
-- [ ] 5. Write bug condition exploration test — `backfill_sqlite` raises `NameError` when called programmatically
+- [x] 5. Write bug condition exploration test — `backfill_sqlite` raises `NameError` when called programmatically
   - **Property 5: Bug Condition** - `backfill_sqlite()` / `backfill_supabase()` Raise `NameError` Outside `__main__`
   - **CRITICAL**: This test MUST FAIL (raise `NameError`) on unfixed code — the exception confirms the bug
   - **DO NOT fix the code when the error appears**
@@ -129,7 +129,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
   - Mark task complete when test written and `NameError` confirmed on unfixed code
   - _Requirements: 1.4_
 
-- [ ] 6. Write preservation property test — script execution behavior unchanged (BEFORE fix)
+- [x] 6. Write preservation property test — script execution behavior unchanged (BEFORE fix)
   - **Property 6: Preservation** - `backfill_sqlite(ref_df=...)` Produces Same DB Updates as Script Execution
   - **IMPORTANT**: Observe on UNFIXED code — specifically the `__main__` path (run as script)
   - Use `hypothesis` `@given(st.data_frames(...))` or hand-written parametrised cases with `pytest.mark.parametrize`
@@ -145,7 +145,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 ## Bug 4 — Missing area validation in admin update form (`streamlit_app.py`)
 
-- [ ] 7. Write bug condition exploration test — short area accepted without error
+- [x] 7. Write bug condition exploration test — short area accepted without error
   - **Property 7: Bug Condition** - Admin Update Accepts Empty/Short Area Without Validation Error
   - **CRITICAL**: This test MUST confirm the absence of validation on unfixed code
   - **DO NOT fix the code when the assertion fails**
@@ -163,7 +163,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
   - Mark task complete when test written, run, and FAILURE documented
   - _Requirements: 1.5_
 
-- [ ] 8. Write preservation property test — valid area updates proceed unchanged (BEFORE fix)
+- [x] 8. Write preservation property test — valid area updates proceed unchanged (BEFORE fix)
   - **Property 8: Preservation** - Area Values ≥ 2 Characters Pass Through to `update_complaint_record` Unmodified
   - **IMPORTANT**: Follow observation-first methodology — observe on UNFIXED code
   - Use `hypothesis` `@given(st.text(min_size=2))` filtered to `len(s.strip()) >= 2`
@@ -181,7 +181,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 - [ ] 9. Fix Bug 1 — Reset `_supabase_failed` in test fixture
 
-  - [ ] 9.1 Add `_supabase_failed` monkeypatch to `test_generate_next_id_supabase_reads_remote_ids`
+  - [x] 9.1 Add `_supabase_failed` monkeypatch to `test_generate_next_id_supabase_reads_remote_ids`
     - File: `tests/test_database.py`
     - Add `monkeypatch.setattr(db, "_supabase_failed", False)` immediately after the existing `SUPABASE_KEY` patch
     - No changes needed in `backend/database.py` — the production logic is correct
@@ -198,7 +198,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
     - **EXPECTED OUTCOME**: Test PASSES — confirms the `_supabase_failed` leak is resolved
     - _Requirements: 2.1, 2.2_
 
-  - [ ] 9.3 Verify preservation test (Property 2) still passes
+  - [~] 9.3 Verify preservation test (Property 2) still passes
     - **Property 2: Preservation** - Supabase Fallback Unaffected
     - **IMPORTANT**: Re-run the SAME test from task 2 — do NOT write a new test
     - Run the preservation property test from task 2
@@ -207,7 +207,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 - [ ] 10. Fix Bug 2 — Use `.where()` for `closure_days` in `analytics.py`
 
-  - [ ] 10.1 Replace chained assignment with `Series.where()` in `load_complaints`
+  - [~] 10.1 Replace chained assignment with `Series.where()` in `load_complaints`
     - File: `backend/analytics.py`
     - Replace the two lines:
       ```python
@@ -226,14 +226,14 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
     - _Preservation: all-Closed DataFrames produce numerically identical `closure_days` values; `summary_metrics()` and `area_summary()` receive correct data_
     - _Requirements: 2.3, 3.3, 3.7_
 
-  - [ ] 10.2 Verify bug condition exploration test (Property 3) now passes
+  - [~] 10.2 Verify bug condition exploration test (Property 3) now passes
     - **Property 3: Expected Behavior** - Non-Closed `closure_days` Are `pd.NA` After Fix
     - **IMPORTANT**: Re-run the SAME test from task 3 — do NOT write a new test
     - Run `pytest tests/test_analytics_bug.py` (or equivalent)
     - **EXPECTED OUTCOME**: Test PASSES — non-Closed rows have `pd.NA`; no `SettingWithCopyWarning`
     - _Requirements: 2.3_
 
-  - [ ] 10.3 Verify preservation test (Property 4) still passes
+  - [~] 10.3 Verify preservation test (Property 4) still passes
     - **Property 4: Preservation** - Closed `closure_days` Unchanged
     - **IMPORTANT**: Re-run the SAME test from task 4 — do NOT write a new test
     - Run property-based preservation test from task 4
@@ -242,7 +242,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 - [ ] 11. Fix Bug 3 — Add `ref_df` parameter to backfill functions
 
-  - [ ] 11.1 Add `ref_df: pd.DataFrame` parameter to `backfill_sqlite` and `backfill_supabase`
+  - [~] 11.1 Add `ref_df: pd.DataFrame` parameter to `backfill_sqlite` and `backfill_supabase`
     - File: `scripts/backfill_locations.py`
     - Change function signatures:
       - `def backfill_sqlite() -> None:` → `def backfill_sqlite(ref_df: pd.DataFrame) -> None:`
@@ -260,7 +260,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
     - _Preservation: `python scripts/backfill_locations.py` command-line execution unchanged; same rows updated, same values written_
     - _Requirements: 2.4, 3.4_
 
-  - [ ] 11.2 Verify bug condition exploration test (Property 5) now passes
+  - [~] 11.2 Verify bug condition exploration test (Property 5) now passes
     - **Property 5: Expected Behavior** - `backfill_sqlite(ref_df=...)` No Longer Raises `NameError`
     - **IMPORTANT**: Re-run the SAME test from task 5 — do NOT write a new test
     - The test from task 5 now expects no `NameError` — update the assertion if it used `pytest.raises(NameError)` to instead assert no exception is raised and the function completes successfully with an empty DataFrame
@@ -268,7 +268,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
     - **EXPECTED OUTCOME**: Test PASSES — no `NameError`; function executes cleanly with `ref_df=pd.DataFrame()`
     - _Requirements: 2.4_
 
-  - [ ] 11.3 Verify preservation test (Property 6) still passes
+  - [~] 11.3 Verify preservation test (Property 6) still passes
     - **Property 6: Preservation** - Script Execution Behavior Unchanged
     - **IMPORTANT**: Re-run the SAME tests from task 6 — do NOT write new tests
     - Run preservation property tests from task 6
@@ -277,7 +277,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 - [ ] 12. Fix Bug 4 — Add area length validation to admin update form
 
-  - [ ] 12.1 Add area validation guard before `update_complaint_record` dispatch in `streamlit_app.py`
+  - [~] 12.1 Add area validation guard before `update_complaint_record` dispatch in `streamlit_app.py`
     - File: `frontend/streamlit_app.py`
     - Inside the `with tab_update:` block, under `if st.button("Save Changes", ...)`:
     - Add the following block BEFORE the `closed_date` ordering check:
@@ -293,14 +293,14 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
     - _Preservation: area values ≥ 2 characters proceed to `update_complaint_record` unmodified; closed-date ordering validation and all other form behavior unchanged_
     - _Requirements: 2.5, 3.5_
 
-  - [ ] 12.2 Verify bug condition exploration test (Property 7) now passes
+  - [~] 12.2 Verify bug condition exploration test (Property 7) now passes
     - **Property 7: Expected Behavior** - Short Area Shows Error, Does Not Update
     - **IMPORTANT**: Re-run the SAME test from task 7 — do NOT write a new test
     - Run test from task 7 against fixed code
     - **EXPECTED OUTCOME**: Test PASSES — `update_complaint_record` is NOT called; error message is shown for `upd_area=""` and `upd_area="X"`
     - _Requirements: 2.5_
 
-  - [ ] 12.3 Verify preservation test (Property 8) still passes
+  - [~] 12.3 Verify preservation test (Property 8) still passes
     - **Property 8: Preservation** - Valid Area Updates Pass Through Unmodified
     - **IMPORTANT**: Re-run the SAME tests from task 8 — do NOT write new tests
     - Run property-based preservation test from task 8 (`@given(st.text(min_size=2))`)
@@ -311,7 +311,7 @@ Tasks follow the bug condition methodology: exploration tests (run BEFORE any fi
 
 ## Checkpoint
 
-- [ ] 13. Checkpoint — all tests pass, no regressions
+- [~] 13. Checkpoint — all tests pass, no regressions
   - Run the full test suite: `pytest tests/ -v`
   - Confirm all 12+ tests pass (11 original + regression tests added in this workflow)
   - Confirm no `SettingWithCopyWarning` appears in the output
