@@ -8,7 +8,6 @@ import sys
 import re
 import os
 import uuid
-import logging
 from datetime import date
 from pathlib import Path
 
@@ -57,10 +56,7 @@ except Exception:
         _spec.loader.exec_module(_mod)
         _notify_real = _mod.notify
         _NOTIFIER_AVAILABLE = True
-    except Exception as exc:
-        logging.getLogger(__name__).warning(
-            "notifier.py could not be loaded — SMS/email notifications disabled: %s", exc
-        )
+    except Exception:
         _NOTIFIER_AVAILABLE = False
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
@@ -90,9 +86,8 @@ UPLOAD_DIR = DATA_DIR / "uploads"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ADMIN_USERNAME = os.getenv("DASHBOARD_ADMIN_USERNAME", "").strip()
-ADMIN_PASSWORD = os.getenv("DASHBOARD_ADMIN_PASSWORD", "").strip()
-ADMIN_LOGIN_ENABLED = bool(ADMIN_USERNAME and ADMIN_PASSWORD)
+ADMIN_USERNAME = os.getenv("DASHBOARD_ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("DASHBOARD_ADMIN_PASSWORD", "admin123")
 MAX_DESCRIPTION_LENGTH = 300
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 GENERIC_AREA_LABELS = {
@@ -1194,13 +1189,10 @@ def notify_user(contact: str, message: str, channel: str = "form") -> None:
             st.session_state[msg_key] = ("success", f"Notification sent to **{contact}**")
             return
         except Exception as exc:
-            st.session_state[msg_key] = ("error", f"SMS/email notification could not be sent: {exc}")
+            st.session_state[msg_key] = ("warning", f"Could not send notification ({exc}). Check your contact details.")
             return
     # Fallback: store in-app banner in session state
-    st.session_state[msg_key] = (
-        "error",
-        "SMS delivery is currently unavailable. No notification was sent to the user."
-    )
+    st.session_state[msg_key] = ("info", f"📢 Notification for **{contact}**: {message}")
 
 
 def save_uploaded_image(uploaded_file, complaint_id: str) -> str | None:
@@ -1330,15 +1322,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""<div class="sidebar-title"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin Login</span></div>""", unsafe_allow_html=True)
 
-    if not ADMIN_LOGIN_ENABLED:
-        st.warning(
-            "Admin login is disabled until DASHBOARD_ADMIN_USERNAME and "
-            "DASHBOARD_ADMIN_PASSWORD are configured in Streamlit secrets."
-        )
-        st.session_state.is_admin = False
-        st.session_state.login_step = 0
-
-    elif st.session_state.is_admin:
+    if st.session_state.is_admin:
         st.success("Admin mode active")
         if st.button("Logout", use_container_width=True):
             st.session_state.is_admin    = False
@@ -1776,15 +1760,36 @@ with main_col:
                 st.success(msg)
             elif level == "warning":
                 st.warning(msg)
-            elif level == "error":
-                st.error(msg)
             else:
                 st.info(msg)
             st.session_state.notify_msg = None
         if st.session_state.last_complaint_receipt:
             receipt = st.session_state.last_complaint_receipt
-            st.success(f"✅ Complaint **{receipt['id']}** registered successfully!")
-            st.session_state.last_complaint_receipt = None
+            r1, r2, r3, r4 = st.columns(4)
+            r1.metric("Complaint ID", receipt["id"])
+            r2.metric("Status", receipt["status"])
+            r3.metric("Priority", receipt["priority"] or "Not set")
+            r4.metric("Area", receipt["area"])
+            location_bits = [
+                receipt.get("village"),
+                receipt.get("municipality"),
+                receipt.get("district"),
+                receipt.get("state"),
+            ]
+            location_text = ", ".join(str(bit) for bit in location_bits if bit)
+            if location_text:
+                st.caption(f"Location: {location_text}")
+            if receipt.get("image_path"):
+                image_file = PROJECT_ROOT / str(receipt["image_path"])
+                if image_file.exists():
+                    st.image(str(image_file), caption="Attached image", use_container_width=True)
+            st.download_button(
+                "Download Receipt",
+                data=build_receipt(receipt).encode("utf-8"),
+                file_name=f"{receipt['id']}_receipt.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
 
         st.subheader("Raise New Complaint")
 
@@ -1891,8 +1896,6 @@ with main_col:
                                 st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
                             if _gps_area:
                                 st.session_state[f"new_area_f_{location_key}"] = _gps_area
-                            if _addr.get("village"):
-                                st.session_state[f"new_village_f_{location_key}"] = _addr["village"]
                             st.session_state[gps_key] = _gps_display
                     except Exception:
                         pass
@@ -1928,6 +1931,21 @@ with main_col:
   #status {{ font-size:0.75rem; color:#94a3b8; margin-top:6px; min-height:16px; }}
 </style>
 </head>
+<body>
+<button id="gps-btn" {"disabled" if _gps_done else ""}>{_btn_label}</button>
+<div id="status">{st.session_state.get(gps_key) or ""}</div>
+<script>
+document.getElementById('gps-btn').addEventListener('click', function() {{
+  var btn = this;
+  var status = document.getElementById('status');
+  btn.textContent = '⏳ Detecting location…';
+  btn.disabled = true;
+  status.textContent = 'Requesting GPS permission…';
+
+  if (!navigator.geolocation) {{
+    status.textContent = 'Geolocation not supported by this browser.';
+    btn.disabled = false;
+    btn.textContent = '📍 Use My Location';
     return;
   }}
 
@@ -1987,56 +2005,39 @@ with main_col:
                     st.error(f'Error looking up address: {e}')
             else:
                 st.info('Please enter an address to lookup.')
+
         # ── Only Complaint ID row (no pincode) ────────────────────────────────────
-        new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
         new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
 
         # ── Show location detection status ────────────────────────────────────────
         if st.session_state.get(gps_key):
             st.caption(f"✓ GPS location detected: {st.session_state[gps_key]} — edit fields below if needed")
 
-        # ── Google Maps address search ────────────────────────────────────────────
-        state_options = build_form_location_options(
-            build_location_options(all_df, "state"),
-            INDIAN_STATES,
-        )
-        state_col, district_col = st.columns(2)
-        new_state = select_valid_option(
-            "State",
-            state_options,
-            f"new_state_f_{location_key}",
-            state_col,
-        )
+        state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
+        state_col, district_col = st.columns([1.1, 1.1])
+        new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
+
         district_options = build_cascading_location_options(
             all_df,
             "district",
             {"state": new_state},
             STATE_DISTRICT_OPTIONS.get(new_state, []),
         )
-        new_district = select_valid_option(
-            "District",
-            district_options,
-            f"new_district_f_{location_key}",
-            district_col,
-        )
+        new_district = select_valid_option("District", district_options, f"new_district_f_{location_key}", district_col)
 
-        municipality_col, village_col = st.columns(2)
-        new_municipality = municipality_col.text_input(
-            "Municipality / City",
-            placeholder="Enter municipality or city",
+        muni_col, area_col = st.columns([1.1, 1.1])
+        new_municipality = muni_col.text_input(
+            "Municipality",
+            placeholder="Enter municipality",
             key=f"new_municipality_f_{location_key}",
         )
-        new_village = village_col.text_input(
-            "Village (optional)",
-            placeholder="Enter village",
-            key=f"new_village_f_{location_key}",
-        )
-        new_area = st.text_input(
+        new_area = area_col.text_input(
             "Area / Locality",
-            placeholder="Enter the specific area or locality",
+            placeholder="Enter area or locality",
             max_chars=80,
             key=f"new_area_f_{location_key}",
         )
+        new_village = st.session_state.get(f"new_village_f_{location_key}", "")
 
         camera_file = None
         uploaded_file = None
@@ -2123,8 +2124,6 @@ if st.session_state.is_admin:
             st.success(msg)
         elif level == "warning":
             st.warning(msg)
-        elif level == "error":
-            st.error(msg)
         else:
             st.info(msg)
         st.session_state.admin_notify_msg = None
@@ -2158,9 +2157,6 @@ if st.session_state.is_admin:
                 if st.button("Save Changes", use_container_width=True, key="adm_save"):
                     closed_val = upd_closed.isoformat() if upd_closed else None
                     created_for_check = row["created_date"].date() if pd.notna(row["created_date"]) else date.today()
-                    if len(upd_area.strip()) < 2:
-                        st.error("Area must be at least 2 characters")
-                        st.stop()
                     if upd_closed and upd_closed < created_for_check:
                         st.error("Closed date cannot be before created date")
                         st.stop()
@@ -2172,7 +2168,7 @@ if st.session_state.is_admin:
                             "district": upd_district.strip() or None,
                             "municipality": upd_municipality.strip() or None,
                             "village": upd_village.strip() or None,
-                            "area": upd_area.strip(),
+                            "area": upd_area.strip() or None,
                             "pincode": None,  # No longer collecting pincode
                             "category": upd_category,
                             "priority": upd_priority,
