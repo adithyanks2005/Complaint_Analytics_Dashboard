@@ -1839,14 +1839,15 @@ with main_col:
                                         if not _gps_area:
                                             _gps_area = name
                                 _gps_display = _result.get("formatted_address", "")[:70]
-                                if _gps_state:
-                                    st.session_state[f"new_state_f_{location_key}"] = _gps_state
-                                if _gps_district:
-                                    st.session_state[f"new_district_f_{location_key}"] = _gps_district
-                                if _gps_muni:
-                                    st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
-                                if _gps_area:
-                                    st.session_state[f"new_area_f_{location_key}"] = _gps_area
+                                st.session_state[f"gmaps_place_f_{location_key}"] = {
+                                    "state":        _gps_state,
+                                    "district":     _gps_district,
+                                    "municipality": _gps_muni,
+                                    "area":         _gps_area,
+                                    "village":      "",
+                                    "formatted":    _gps_display,
+                                }
+                                st.session_state[f"gmaps_address_f_{location_key}"] = _gps_display
                                 st.session_state[gps_key] = _gps_display
                                 google_maps_success = True
                     except Exception:
@@ -1881,14 +1882,15 @@ with main_col:
                                 _addr.get("road") or _addr.get("amenity") or ""
                             )
                             _gps_display  = _geo.get("display_name", "")[:70]
-                            if _gps_state:
-                                st.session_state[f"new_state_f_{location_key}"] = _gps_state
-                            if _gps_district:
-                                st.session_state[f"new_district_f_{location_key}"] = _gps_district
-                            if _gps_muni:
-                                st.session_state[f"new_municipality_f_{location_key}"] = _gps_muni
-                            if _gps_area:
-                                st.session_state[f"new_area_f_{location_key}"] = _gps_area
+                            st.session_state[f"gmaps_place_f_{location_key}"] = {
+                                "state":        _gps_state,
+                                "district":     _gps_district,
+                                "municipality": _gps_muni,
+                                "area":         _gps_area,
+                                "village":      _addr.get("village", ""),
+                                "formatted":    _gps_display,
+                            }
+                            st.session_state[f"gmaps_address_f_{location_key}"] = _gps_display
                             st.session_state[gps_key] = _gps_display
                     except Exception:
                         pass
@@ -1969,68 +1971,96 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
 </body>
 </html>""", height=80)
 
-        # ── Google Maps address autocomplete ────────────────────────────────────────
-        st.subheader('📍 Address Autocomplete')
-        address_query = st.text_input('Search address', key=f'address_search_{location_key}')
-        if st.button('Lookup Address', key=f'lookup_btn_{location_key}'):
-            if address_query:
-                try:
-                    import requests, os
-                    api_key = os.getenv('GOOGLE_MAPS_API_KEY')
-                    resp = requests.get('https://maps.googleapis.com/maps/api/geocode/json', params={
-                        'address': address_query,
-                        'key': api_key,
-                    }, timeout=10)
-                    data = resp.json()
-                    if data.get('status') == 'OK' and data.get('results'):
-                        result = data['results'][0]
-                        comps = {comp['types'][0]: comp['long_name'] for comp in result.get('address_components', [])}
-                        if comps.get('administrative_area_level_1'):
-                            st.session_state[f'new_state_f_{location_key}'] = comps['administrative_area_level_1']
-                        if comps.get('administrative_area_level_2'):
-                            st.session_state[f'new_district_f_{location_key}'] = comps['administrative_area_level_2']
-                        if comps.get('locality'):
-                            st.session_state[f'new_area_f_{location_key}'] = comps['locality']
-                        st.success('Address details loaded. Review and edit if needed.')
-                    else:
-                        st.warning('No results found for the given address.')
-                except Exception as e:
-                    st.error(f'Error looking up address: {e}')
-            else:
-                st.info('Please enter an address to lookup.')
-
         # ── Only Complaint ID row (no pincode) ────────────────────────────────────
         new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
 
-        # ── Show location detection status ────────────────────────────────────────
+        # ── Google Maps address search ─────────────────────────────────────────
+        _gmaps_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+        _place_key = f"gmaps_place_f_{location_key}"
+        _addr_key  = f"gmaps_address_f_{location_key}"
+        if _place_key not in st.session_state:
+            st.session_state[_place_key] = {}
+        if _addr_key not in st.session_state:
+            st.session_state[_addr_key] = ""
+
+        # Show GPS status if detected
         if st.session_state.get(gps_key):
-            st.caption(f"✓ GPS location detected: {st.session_state[gps_key]} — edit fields below if needed")
+            st.caption(f"✓ Location detected: {st.session_state[gps_key]}")
 
-        state_options = build_form_location_options(build_location_options(all_df, "state"), INDIAN_STATES)
-        state_col, district_col = st.columns([1.1, 1.1])
-        new_state = select_valid_option("State", state_options, f"new_state_f_{location_key}", state_col)
+        if _gmaps_key:
+            _autocomplete_html = f"""
+<script>
+(function() {{
+  function initAC() {{
+    var input = document.getElementById('pac-input');
+    if (!input || !window.google || !window.google.maps) {{ setTimeout(initAC, 300); return; }}
+    var ac = new google.maps.places.Autocomplete(input, {{types: ['geocode'], componentRestrictions: {{country: 'in'}}}});
+    ac.addListener('place_changed', function() {{
+      var p = ac.getPlace();
+      if (!p.address_components) return;
+      function get(types) {{
+        var c = p.address_components.find(function(a) {{ return types.every(function(t) {{ return a.types.includes(t); }}); }});
+        return c ? c.long_name : '';
+      }}
+      var area = get(['sublocality_level_1']) || get(['sublocality']) || get(['neighborhood']) || get(['locality']) || '';
+      var muni = get(['locality']) || get(['administrative_area_level_3']) || '';
+      var dist = get(['administrative_area_level_2']) || '';
+      var state= get(['administrative_area_level_1']) || '';
+      var vill = get(['sublocality_level_2']) || '';
+      var formatted = p.formatted_address || '';
+      document.getElementById('pac-display').textContent = '✓ ' + formatted;
+      // Send data back to Streamlit via query params + reload
+      var params = new URLSearchParams(window.location.search);
+      params.set('gmaps_area', area);
+      params.set('gmaps_muni', muni);
+      params.set('gmaps_dist', dist);
+      params.set('gmaps_state', state);
+      params.set('gmaps_village', vill);
+      params.set('gmaps_formatted', formatted);
+      window.parent.location.search = params.toString();
+    }});
+  }}
+  var s = document.createElement('script');
+  s.src = 'https://maps.googleapis.com/maps/api/js?key={_gmaps_key}&libraries=places&callback=Function.prototype';
+  s.async = true; s.defer = true;
+  s.onload = function() {{ initAC(); }};
+  document.head.appendChild(s);
+}})();
+</script>
+<input id="pac-input" type="text"
+  placeholder="🔍  Search for your locality or address..."
+  style="width:100%;padding:11px 14px;font-size:15px;border-radius:10px;
+         border:1px solid #444;background:#1e1e2e;color:#fff;
+         box-sizing:border-box;outline:none;" />
+<div id="pac-display" style="margin-top:6px;font-size:13px;color:#a0aec0;min-height:18px;"></div>
+"""
+            components.html(_autocomplete_html, height=90)
+        else:
+            st.info("ℹ️ Set GOOGLE_MAPS_API_KEY in .env to enable map autocomplete")
 
-        district_options = build_cascading_location_options(
-            all_df,
-            "district",
-            {"state": new_state},
-            STATE_DISTRICT_OPTIONS.get(new_state, []),
-        )
-        new_district = select_valid_option("District", district_options, f"new_district_f_{location_key}", district_col)
+        # ── Handle Google Maps selection passed back via query params ───────────
+        _qp = st.query_params
+        if "gmaps_area" in _qp:
+            st.session_state[_place_key] = {
+                "area":         _qp.get("gmaps_area", ""),
+                "municipality": _qp.get("gmaps_muni", ""),
+                "district":     _qp.get("gmaps_dist", ""),
+                "state":        _qp.get("gmaps_state", ""),
+                "village":      _qp.get("gmaps_village", ""),
+                "formatted":    _qp.get("gmaps_formatted", ""),
+            }
+            st.session_state[_addr_key] = _qp.get("gmaps_formatted", "")
+            st.query_params.clear()
+            st.rerun()
 
-        muni_col, area_col = st.columns([1.1, 1.1])
-        new_municipality = muni_col.text_input(
-            "Municipality",
-            placeholder="Enter municipality",
-            key=f"new_municipality_f_{location_key}",
-        )
-        new_area = area_col.text_input(
-            "Area / Locality",
-            placeholder="Enter area or locality",
-            max_chars=80,
-            key=f"new_area_f_{location_key}",
-        )
-        new_village = st.session_state.get(f"new_village_f_{location_key}", "")
+        # Pull location values from place data (set by GPS or Google Maps)
+        _place_data    = st.session_state.get(_place_key, {})
+        new_state      = _place_data.get("state", "")
+        new_district   = _place_data.get("district", "")
+        new_municipality = _place_data.get("municipality", "")
+        new_village    = _place_data.get("village", "")
+        # Area: prefer place data, fallback to address text input
+        new_area = _place_data.get("area", "") or st.session_state.get(_addr_key, "").strip()
 
         camera_file = None
         uploaded_file = None
