@@ -1974,102 +1974,116 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
         # ── Only Complaint ID row (no pincode) ────────────────────────────────────
         new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
 
-        # ── Location: Google Places text search ───────────────────────────────
+        # ── Location: Google Places live autocomplete ─────────────────────────
         _gmaps_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
         _place_key = f"gmaps_place_f_{location_key}"
         if _place_key not in st.session_state:
             st.session_state[_place_key] = {}
 
-        # Show detected location if GPS already resolved it
-        _place_data = st.session_state.get(_place_key, {})
-        if _place_data.get("formatted"):
-            st.success(f"📍 Location: {_place_data['formatted']}")
-
-        # Address search input
-        _search_val = _place_data.get("formatted", "")
-        _address_input = st.text_input(
-            "📍 Address / Locality",
-            value=_search_val,
-            placeholder="Type your locality, area or full address and press Enter…",
-            key=f"address_input_f_{location_key}",
-            help="Start typing your address — press Search to autofill location details",
-        )
-
-        _search_col, _clear_col = st.columns([3, 1])
-        _do_search = _search_col.button("🔍 Search Address", key=f"search_btn_f_{location_key}", use_container_width=True)
-        _do_clear  = _clear_col.button("✕ Clear", key=f"clear_btn_f_{location_key}", use_container_width=True)
-
-        if _do_clear:
-            st.session_state[_place_key] = {}
-            st.rerun()
-
-        if _do_search and _address_input.strip():
+        def _search_places(query: str) -> list[str]:
+            """Call Google Places Autocomplete and return suggestion strings."""
+            if not query or len(query) < 3 or not _gmaps_key:
+                return []
             try:
                 import requests as _req
-                if _gmaps_key:
-                    _r = _req.get(
-                        "https://maps.googleapis.com/maps/api/geocode/json",
-                        params={"address": _address_input.strip(), "key": _gmaps_key, "language": "en", "region": "in"},
-                        timeout=10,
-                    )
-                    _geo = _r.json()
-                    if _geo.get("status") == "OK" and _geo.get("results"):
-                        _res = _geo["results"][0]
-                        _comps = _res.get("address_components", [])
-                        def _get(types):
-                            for c in _comps:
+                r = _req.get(
+                    "https://maps.googleapis.com/maps/api/place/autocomplete/json",
+                    params={
+                        "input": query,
+                        "key": _gmaps_key,
+                        "language": "en",
+                        "components": "country:in",
+                        "types": "geocode",
+                    },
+                    timeout=5,
+                )
+                data = r.json()
+                if data.get("status") == "OK":
+                    return [p["description"] for p in data.get("predictions", [])]
+            except Exception:
+                pass
+            return []
+
+        def _geocode_address(address: str) -> dict:
+            """Geocode a selected address string to structured fields."""
+            if not address or not _gmaps_key:
+                return {}
+            try:
+                import requests as _req
+                r = _req.get(
+                    "https://maps.googleapis.com/maps/api/geocode/json",
+                    params={"address": address, "key": _gmaps_key, "language": "en", "region": "in"},
+                    timeout=8,
+                )
+                geo = r.json()
+                if geo.get("status") == "OK" and geo.get("results"):
+                    res   = geo["results"][0]
+                    comps = res.get("address_components", [])
+                    def _get(*type_sets):
+                        for types in type_sets:
+                            for c in comps:
                                 if all(t in c["types"] for t in types):
                                     return c["long_name"]
-                            return ""
-                        _state  = _get(["administrative_area_level_1"])
-                        _dist   = _get(["administrative_area_level_2"])
-                        _muni   = _get(["locality"]) or _get(["administrative_area_level_3"])
-                        _area   = _get(["sublocality_level_1"]) or _get(["sublocality"]) or _get(["neighborhood"]) or _muni
-                        _vill   = _get(["sublocality_level_2"])
-                        _fmt    = _res.get("formatted_address", "")
-                        st.session_state[_place_key] = {
-                            "state": _state, "district": _dist,
-                            "municipality": _muni, "area": _area,
-                            "village": _vill, "formatted": _fmt,
-                        }
-                        st.rerun()
-                    else:
-                        st.warning("No results found — try a more specific address.")
-                else:
-                    # Fallback: Nominatim (no API key needed)
-                    _r = _req.get(
-                        "https://nominatim.openstreetmap.org/search",
-                        params={"q": _address_input.strip(), "format": "json", "addressdetails": 1, "limit": 1, "countrycodes": "in"},
-                        headers={"User-Agent": "ComplaintDashboard/1.0"},
-                        timeout=8,
-                    )
-                    _results = _r.json()
-                    if _results:
-                        _addr = _results[0].get("address", {})
-                        _state  = _addr.get("state", "")
-                        _dist   = _addr.get("county") or _addr.get("state_district") or _addr.get("district", "")
-                        _muni   = _addr.get("city") or _addr.get("town") or _addr.get("municipality", "")
-                        _area   = _addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("quarter") or _muni
-                        _vill   = _addr.get("village", "")
-                        _fmt    = _results[0].get("display_name", "")
-                        st.session_state[_place_key] = {
-                            "state": _state, "district": _dist,
-                            "municipality": _muni, "area": _area,
-                            "village": _vill, "formatted": _fmt,
-                        }
-                        st.rerun()
-                    else:
-                        st.warning("No results found — try a different address.")
-            except Exception as _e:
-                st.error(f"Address lookup failed: {_e}")
+                        return ""
+                    return {
+                        "state":        _get(["administrative_area_level_1"]),
+                        "district":     _get(["administrative_area_level_2"]),
+                        "municipality": _get(["locality"], ["administrative_area_level_3"]),
+                        "area":         _get(["sublocality_level_1"], ["sublocality"], ["neighborhood"], ["locality"]),
+                        "village":      _get(["sublocality_level_2"]),
+                        "formatted":    res.get("formatted_address", ""),
+                    }
+            except Exception:
+                pass
+            return {}
 
-        # Extract location values for the complaint record
-        _place_data    = st.session_state.get(_place_key, {})
-        new_state      = _place_data.get("state", "")
-        new_district   = _place_data.get("district", "")
+        # Render live searchbox
+        try:
+            from streamlit_searchbox import st_searchbox
+            _selected = st_searchbox(
+                _search_places,
+                label="📍 Search your locality or address",
+                placeholder="Start typing — e.g. Whitefield, Bengaluru…",
+                key=f"places_searchbox_{location_key}",
+                clear_on_submit=False,
+                rerun_on_update=False,
+            )
+            if _selected and _selected != st.session_state.get(_place_key, {}).get("formatted"):
+                _resolved = _geocode_address(_selected)
+                if _resolved:
+                    st.session_state[_place_key] = _resolved
+                    st.rerun()
+        except ImportError:
+            # Fallback if streamlit-searchbox not yet installed
+            _address_input = st.text_input(
+                "📍 Address / Locality",
+                value=st.session_state.get(_place_key, {}).get("formatted", ""),
+                placeholder="Type your locality or address and press Search",
+                key=f"address_input_f_{location_key}",
+            )
+            if st.button("🔍 Search", key=f"search_btn_f_{location_key}"):
+                _resolved = _geocode_address(_address_input.strip())
+                if _resolved:
+                    st.session_state[_place_key] = _resolved
+                    st.rerun()
+                else:
+                    st.warning("No results found — try a more specific address.")
+
+        # Show confirmed location
+        _place_data = st.session_state.get(_place_key, {})
+        if _place_data.get("formatted"):
+            st.success(f"📍 {_place_data['formatted']}")
+            if st.button("✕ Change location", key=f"clear_loc_f_{location_key}"):
+                st.session_state[_place_key] = {}
+                st.rerun()
+
+        # Extract values for complaint record
+        _place_data      = st.session_state.get(_place_key, {})
+        new_state        = _place_data.get("state", "")
+        new_district     = _place_data.get("district", "")
         new_municipality = _place_data.get("municipality", "")
-        new_village    = _place_data.get("village", "")
-        new_area       = _place_data.get("area", "") or _address_input.strip()
+        new_village      = _place_data.get("village", "")
+        new_area         = _place_data.get("area", "") or _place_data.get("formatted", "")
 
         camera_file = None
         uploaded_file = None
