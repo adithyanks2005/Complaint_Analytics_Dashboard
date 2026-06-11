@@ -60,7 +60,7 @@ Follows the exploratory bugfix workflow: write tests on unfixed code first, then
   - Mark task complete when all three tests are written, run, and failures are documented
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-- [-] 2. Write preservation property tests (BEFORE implementing fix)
+- [ ] 2. Write preservation property tests (BEFORE implementing fix)
   - **Property 2: Preservation** - Successful SMS / Valid Credentials / Email Path / No-Contact Path
   - **IMPORTANT**: Follow observation-first methodology — observe UNFIXED code behaviour first
   - Create `tests/test_bugfix_sms_preservation.py` using `pytest` and `hypothesis`
@@ -209,7 +209,7 @@ Follows the exploratory bugfix workflow: write tests on unfixed code first, then
 
 - [ ] 6. Verify bug condition exploration tests now pass (after all three fixes)
 
-  - [-] 6.1 Re-run Bug A, B, C exploration tests from task 1
+  - [ ] 6.1 Re-run Bug A, B, C exploration tests from task 1
     - **Property 1: Expected Behavior** - Silent Fallback Error / Exception Error Level / E.164 Rejection
     - **IMPORTANT**: Re-run the SAME tests from task 1 — do NOT write new tests
     - The tests from task 1 encode the expected (correct) behavior
@@ -220,7 +220,7 @@ Follows the exploratory bugfix workflow: write tests on unfixed code first, then
     - Bug C test: `credentials_configured()["sms"] == False` for `+91` and `+1`
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-  - [~] 6.2 Re-run preservation tests from task 2
+  - [ ] 6.2 Re-run preservation tests from task 2
     - **Property 2: Preservation** - Successful SMS / Valid Credentials / Email Path / No-Contact
     - **IMPORTANT**: Re-run the SAME tests from task 2 — do NOT write new tests
     - Run `pytest tests/test_bugfix_sms_preservation.py -v`
@@ -228,7 +228,7 @@ Follows the exploratory bugfix workflow: write tests on unfixed code first, then
     - Valid E.164 numbers still accepted, success path unchanged, email path unaffected
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [~] 7. Checkpoint — ensure all tests pass
+- [ ] 7. Checkpoint — ensure all tests pass
   - Run the full test suite: `pytest tests/ -v`
   - Confirm zero failures across both exploration and preservation test files
   - Confirm no existing tests regressed

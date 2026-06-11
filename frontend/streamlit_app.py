@@ -1198,7 +1198,7 @@ def notify_user(contact: str, message: str, channel: str = "form") -> None:
             st.session_state[msg_key] = ("success", f"Notification sent to **{contact}**")
             return
         except Exception as exc:
-            st.session_state[msg_key] = ("warning", f"Could not send notification ({exc}). Check your contact details.")
+            st.session_state[msg_key] = ("error", "Could not send notification. Check your contact details.")
             return
     # Fallback: store in-app banner in session state
     st.session_state[msg_key] = ("info", f"📢 Notification for **{contact}**: {message}")
@@ -1746,8 +1746,13 @@ with main_col:
                     if final_contact:
                         notify_user(
                             final_contact,
-                            f"Your complaint <b>{new_id}</b> has been registered successfully. "
-                            "Our team will review it shortly. You can track its status on the dashboard.",
+                            f"Your complaint <b>{new_id}</b> has been registered successfully.<br><br>"
+                            f"<b>Category:</b> {final_category}<br>"
+                            f"<b>Area:</b> {final_area}<br>"
+                            f"<b>Priority:</b> {final_priority}<br>"
+                            f"<b>Status:</b> Pending<br><br>"
+                            "Our team will review your complaint shortly. "
+                            "You can track the status on the Complaint Analytics Dashboard.",
                         )
                     st.session_state.form_key_f += 1
                     st.session_state.new_complaint_id = get_next_complaint_id()
@@ -1769,36 +1774,15 @@ with main_col:
                 st.success(msg)
             elif level == "warning":
                 st.warning(msg)
+            elif level == "error":
+                st.error(msg)
             else:
                 st.info(msg)
             st.session_state.notify_msg = None
         if st.session_state.last_complaint_receipt:
             receipt = st.session_state.last_complaint_receipt
-            r1, r2, r3, r4 = st.columns(4)
-            r1.metric("Complaint ID", receipt["id"])
-            r2.metric("Status", receipt["status"])
-            r3.metric("Priority", receipt["priority"] or "Not set")
-            r4.metric("Area", receipt["area"])
-            location_bits = [
-                receipt.get("village"),
-                receipt.get("municipality"),
-                receipt.get("district"),
-                receipt.get("state"),
-            ]
-            location_text = ", ".join(str(bit) for bit in location_bits if bit)
-            if location_text:
-                st.caption(f"Location: {location_text}")
-            if receipt.get("image_path"):
-                image_file = PROJECT_ROOT / str(receipt["image_path"])
-                if image_file.exists():
-                    st.image(str(image_file), caption="Attached image", use_container_width=True)
-            st.download_button(
-                "Download Receipt",
-                data=build_receipt(receipt).encode("utf-8"),
-                file_name=f"{receipt['id']}_receipt.txt",
-                mime="text/plain",
-                use_container_width=True,
-            )
+            st.success(f"✅ Complaint **{receipt['id']}** registered successfully!")
+            st.session_state.last_complaint_receipt = None
 
         st.subheader("Raise New Complaint")
 
