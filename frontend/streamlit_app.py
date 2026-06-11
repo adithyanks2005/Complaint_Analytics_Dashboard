@@ -1974,93 +1974,102 @@ document.getElementById('gps-btn').addEventListener('click', function() {{
         # ── Only Complaint ID row (no pincode) ────────────────────────────────────
         new_id = st.text_input("Complaint ID", value=st.session_state.new_complaint_id, disabled=True)
 
-        # ── Google Maps address search ─────────────────────────────────────────
+        # ── Location: Google Places text search ───────────────────────────────
         _gmaps_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
         _place_key = f"gmaps_place_f_{location_key}"
-        _addr_key  = f"gmaps_address_f_{location_key}"
         if _place_key not in st.session_state:
             st.session_state[_place_key] = {}
-        if _addr_key not in st.session_state:
-            st.session_state[_addr_key] = ""
 
-        # Show GPS status if detected
-        if st.session_state.get(gps_key):
-            st.caption(f"✓ Location detected: {st.session_state[gps_key]}")
+        # Show detected location if GPS already resolved it
+        _place_data = st.session_state.get(_place_key, {})
+        if _place_data.get("formatted"):
+            st.success(f"📍 Location: {_place_data['formatted']}")
 
-        if _gmaps_key:
-            _autocomplete_html = f"""
-<script>
-(function() {{
-  function initAC() {{
-    var input = document.getElementById('pac-input');
-    if (!input || !window.google || !window.google.maps) {{ setTimeout(initAC, 300); return; }}
-    var ac = new google.maps.places.Autocomplete(input, {{types: ['geocode'], componentRestrictions: {{country: 'in'}}}});
-    ac.addListener('place_changed', function() {{
-      var p = ac.getPlace();
-      if (!p.address_components) return;
-      function get(types) {{
-        var c = p.address_components.find(function(a) {{ return types.every(function(t) {{ return a.types.includes(t); }}); }});
-        return c ? c.long_name : '';
-      }}
-      var area = get(['sublocality_level_1']) || get(['sublocality']) || get(['neighborhood']) || get(['locality']) || '';
-      var muni = get(['locality']) || get(['administrative_area_level_3']) || '';
-      var dist = get(['administrative_area_level_2']) || '';
-      var state= get(['administrative_area_level_1']) || '';
-      var vill = get(['sublocality_level_2']) || '';
-      var formatted = p.formatted_address || '';
-      document.getElementById('pac-display').textContent = '✓ ' + formatted;
-      // Send data back to Streamlit via query params + reload
-      var params = new URLSearchParams(window.location.search);
-      params.set('gmaps_area', area);
-      params.set('gmaps_muni', muni);
-      params.set('gmaps_dist', dist);
-      params.set('gmaps_state', state);
-      params.set('gmaps_village', vill);
-      params.set('gmaps_formatted', formatted);
-      window.parent.location.search = params.toString();
-    }});
-  }}
-  var s = document.createElement('script');
-  s.src = 'https://maps.googleapis.com/maps/api/js?key={_gmaps_key}&libraries=places&callback=Function.prototype';
-  s.async = true; s.defer = true;
-  s.onload = function() {{ initAC(); }};
-  document.head.appendChild(s);
-}})();
-</script>
-<input id="pac-input" type="text"
-  placeholder="🔍  Search for your locality or address..."
-  style="width:100%;padding:11px 14px;font-size:15px;border-radius:10px;
-         border:1px solid #444;background:#1e1e2e;color:#fff;
-         box-sizing:border-box;outline:none;" />
-<div id="pac-display" style="margin-top:6px;font-size:13px;color:#a0aec0;min-height:18px;"></div>
-"""
-            components.html(_autocomplete_html, height=90)
-        else:
-            st.info("ℹ️ Set GOOGLE_MAPS_API_KEY in .env to enable map autocomplete")
+        # Address search input
+        _search_val = _place_data.get("formatted", "")
+        _address_input = st.text_input(
+            "📍 Address / Locality",
+            value=_search_val,
+            placeholder="Type your locality, area or full address and press Enter…",
+            key=f"address_input_f_{location_key}",
+            help="Start typing your address — press Search to autofill location details",
+        )
 
-        # ── Handle Google Maps selection passed back via query params ───────────
-        _qp = st.query_params
-        if "gmaps_area" in _qp:
-            st.session_state[_place_key] = {
-                "area":         _qp.get("gmaps_area", ""),
-                "municipality": _qp.get("gmaps_muni", ""),
-                "district":     _qp.get("gmaps_dist", ""),
-                "state":        _qp.get("gmaps_state", ""),
-                "village":      _qp.get("gmaps_village", ""),
-                "formatted":    _qp.get("gmaps_formatted", ""),
-            }
-            st.session_state[_addr_key] = _qp.get("gmaps_formatted", "")
-            st.query_params.clear()
+        _search_col, _clear_col = st.columns([3, 1])
+        _do_search = _search_col.button("🔍 Search Address", key=f"search_btn_f_{location_key}", use_container_width=True)
+        _do_clear  = _clear_col.button("✕ Clear", key=f"clear_btn_f_{location_key}", use_container_width=True)
+
+        if _do_clear:
+            st.session_state[_place_key] = {}
             st.rerun()
 
-        # Pull location values from place data (set by GPS or Google Maps)
+        if _do_search and _address_input.strip():
+            try:
+                import requests as _req
+                if _gmaps_key:
+                    _r = _req.get(
+                        "https://maps.googleapis.com/maps/api/geocode/json",
+                        params={"address": _address_input.strip(), "key": _gmaps_key, "language": "en", "region": "in"},
+                        timeout=10,
+                    )
+                    _geo = _r.json()
+                    if _geo.get("status") == "OK" and _geo.get("results"):
+                        _res = _geo["results"][0]
+                        _comps = _res.get("address_components", [])
+                        def _get(types):
+                            for c in _comps:
+                                if all(t in c["types"] for t in types):
+                                    return c["long_name"]
+                            return ""
+                        _state  = _get(["administrative_area_level_1"])
+                        _dist   = _get(["administrative_area_level_2"])
+                        _muni   = _get(["locality"]) or _get(["administrative_area_level_3"])
+                        _area   = _get(["sublocality_level_1"]) or _get(["sublocality"]) or _get(["neighborhood"]) or _muni
+                        _vill   = _get(["sublocality_level_2"])
+                        _fmt    = _res.get("formatted_address", "")
+                        st.session_state[_place_key] = {
+                            "state": _state, "district": _dist,
+                            "municipality": _muni, "area": _area,
+                            "village": _vill, "formatted": _fmt,
+                        }
+                        st.rerun()
+                    else:
+                        st.warning("No results found — try a more specific address.")
+                else:
+                    # Fallback: Nominatim (no API key needed)
+                    _r = _req.get(
+                        "https://nominatim.openstreetmap.org/search",
+                        params={"q": _address_input.strip(), "format": "json", "addressdetails": 1, "limit": 1, "countrycodes": "in"},
+                        headers={"User-Agent": "ComplaintDashboard/1.0"},
+                        timeout=8,
+                    )
+                    _results = _r.json()
+                    if _results:
+                        _addr = _results[0].get("address", {})
+                        _state  = _addr.get("state", "")
+                        _dist   = _addr.get("county") or _addr.get("state_district") or _addr.get("district", "")
+                        _muni   = _addr.get("city") or _addr.get("town") or _addr.get("municipality", "")
+                        _area   = _addr.get("suburb") or _addr.get("neighbourhood") or _addr.get("quarter") or _muni
+                        _vill   = _addr.get("village", "")
+                        _fmt    = _results[0].get("display_name", "")
+                        st.session_state[_place_key] = {
+                            "state": _state, "district": _dist,
+                            "municipality": _muni, "area": _area,
+                            "village": _vill, "formatted": _fmt,
+                        }
+                        st.rerun()
+                    else:
+                        st.warning("No results found — try a different address.")
+            except Exception as _e:
+                st.error(f"Address lookup failed: {_e}")
+
+        # Extract location values for the complaint record
         _place_data    = st.session_state.get(_place_key, {})
         new_state      = _place_data.get("state", "")
         new_district   = _place_data.get("district", "")
         new_municipality = _place_data.get("municipality", "")
         new_village    = _place_data.get("village", "")
-        # Area: prefer place data, fallback to address text input
-        new_area = _place_data.get("area", "") or st.session_state.get(_addr_key, "").strip()
+        new_area       = _place_data.get("area", "") or _address_input.strip()
 
         camera_file = None
         uploaded_file = None
