@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Liquid Glass 3D Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f7fbff;
+      --muted: rgba(235, 244, 252, 0.66);
+      --cyan: #56dcff;
+      --mint: #5effba;
+      --coral: #ff7f98;
+      --amber: #ffd36c;
+      --violet: #a991ff;
+      --glass-alpha: 0.18;
+      --frost: 26px;
+      --rx: 58deg;
+      --ry: -28deg;
+      --rz: -18deg;
+      --mx: 50%;
+      --my: 48%;
+      --tilt-shadow-x: -18px;
+      --tilt-shadow-y: 38px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      overflow-x: hidden;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 10% 14%, rgba(86, 220, 255, 0.2), transparent 22rem),
+        radial-gradient(circle at 86% 18%, rgba(255, 127, 152, 0.18), transparent 24rem),
+        radial-gradient(circle at 72% 88%, rgba(94, 255, 186, 0.14), transparent 24rem),
+        linear-gradient(135deg, #07111e 0%, #0d1723 46%, #14111e 100%);
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      content: "";
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.034) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at 52% 48%, black, transparent 74%);
+    }
+
+    body::after {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      pointer-events: none;
+      opacity: 0.33;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+      mix-blend-mode: soft-light;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .preview {
+      width: min(1200px, calc(100% - 32px));
+      min-height: 100vh;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 44px;
+      align-items: center;
+      padding: 36px 0;
+    }
+
+    .deck {
+      position: relative;
+      z-index: 4;
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, calc(var(--glass-alpha) + 0.08)), rgba(255, 255, 255, 0.07)),
+        rgba(7, 18, 33, 0.34);
+      box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(var(--frost)) saturate(168%);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(249, 252, 255, 0.72);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .brand::before {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      content: "";
+      background: var(--mint);
+      box-shadow: 0 0 18px rgba(94, 255, 186, 0.82);
+    }
+
+    h1 {
+      margin: 26px 0 18px;
+      font-size: 5.6rem;
+      line-height: 0.86;
+      letter-spacing: 0;
+    }
+
+    .summary {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.65;
+    }
+
+    .mode-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 28px 0;
+    }
+
+    .mode-button,
+    .auto-button {
+      min-height: 44px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      color: rgba(247, 251, 255, 0.82);
+      background: rgba(255, 255, 255, 0.078);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      transition: border-color 180ms ease, background 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .mode-button:hover,
+    .auto-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    .mode-button[aria-pressed="true"],
+    .auto-button[aria-pressed="true"] {
+      color: #07121f;
+      border-color: rgba(255, 255, 255, 0.72);
+      background: linear-gradient(135deg, rgba(86, 220, 255, 0.95), rgba(94, 255, 186, 0.92));
+      box-shadow: 0 12px 34px rgba(86, 220, 255, 0.2);
+    }
+
+    .control-stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .field {
+      display: grid;
+      gap: 9px;
+    }
+
+    .field label,
+    .meter-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: rgba(244, 249, 255, 0.72);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .field output,
+    .meter-label span {
+      color: var(--ink);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--cyan);
+    }
+
+    .depth-row {
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .icon-button {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 50%;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(16px);
+    }
+
+    .icon-button svg {
+      width: 19px;
+      height: 19px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      fill: none;
+    }
+
+    .depth-track {
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .depth-fill {
+      width: 82%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--mint), var(--amber));
+      box-shadow: 0 0 22px rgba(86, 220, 255, 0.34);
+      transition: width 180ms ease;
+    }
+
+    .auto-button {
+      width: 100%;
+      margin-top: 4px;
+      font-weight: 800;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 26px;
+    }
+
+    .stat {
+      min-height: 70px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 8px;
+      color: rgba(235, 244, 252, 0.58);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .scene {
+      position: relative;
+      min-height: 720px;
+      display: grid;
+      place-items: center;
+      perspective: 1400px;
+      transform-style: preserve-3d;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .scene::before {
+      position: absolute;
+      width: min(660px, 76vw);
+      aspect-ratio: 1;
+      content: "";
+      opacity: 0.72;
+      background:
+        conic-gradient(from 120deg, rgba(86, 220, 255, 0.24), rgba(255, 127, 152, 0.22), rgba(255, 211, 108, 0.16), rgba(94, 255, 186, 0.2), rgba(86, 220, 255, 0.24));
+      filter: blur(46px);
+      transform: translate3d(-2%, 3%, -120px) rotate(10deg);
+      animation: lightSweep 16s linear infinite;
+    }
+
+    .scene::after {
+      position: absolute;
+      width: min(520px, 72vw);
+      height: 80px;
+      bottom: 72px;
+      content: "";
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.5), transparent 70%);
+      filter: blur(12px);
+      transform: translateZ(-180px);
+    }
+
+    .glass-rig {
+      position: relative;
+      width: min(470px, 66vw);
+      aspect-ratio: 0.75;
+      transform-style: preserve-3d;
+      transform:
+        rotateX(var(--rx))
+        rotateY(var(--ry))
+        rotateZ(var(--rz));
+      transition: transform 90ms linear;
+      will-change: transform;
+    }
+
+    .liquid-display {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 34px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, calc(var(--glass-alpha) + 0.16)), rgba(255, 255, 255, 0.045) 38%, rgba(255, 255, 255, calc(var(--glass-alpha) + 0.03))),
+        rgba(7, 18, 32, 0.3);
+      box-shadow:
+        var(--tilt-shadow-x) var(--tilt-shadow-y) 95px rgba(0, 0, 0, 0.42),
+        0 20px 60px rgba(86, 220, 255, 0.16),
+        inset 0 1px 1px rgba(255, 255, 255, 0.58),
+        inset 0 -32px 70px rgba(6, 18, 34, 0.44),
+        inset 18px 0 42px rgba(86, 220, 255, 0.11),
+        inset -18px 0 42px rgba(255, 127, 152, 0.08);
+      backdrop-filter: blur(var(--frost)) saturate(178%);
+      transform: translateZ(60px);
+    }
+
+    .liquid-display::before,
+    .liquid-display::after {
+      position: absolute;
+      inset: 18px;
+      z-index: 6;
+      content: "";
+      pointer-events: none;
+      border-radius: 26px;
+    }
+
+    .liquid-display::before {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background:
+        radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, 0.36), transparent 12rem),
+        linear-gradient(115deg, rgba(255, 255, 255, 0.42), transparent 20%, transparent 70%, rgba(255, 255, 255, 0.18));
+      mix-blend-mode: screen;
+      opacity: 0.52;
+    }
+
+    .liquid-display::after {
+      width: 42%;
+      right: auto;
+      background: linear-gradient(105deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+      filter: blur(2px);
+      opacity: 0.24;
+      transform: translateX(calc((var(--mx) - 50%) * 0.32)) skewX(-10deg);
+      animation: refract 4.8s ease-in-out infinite;
+    }
+
+    #liquidCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      filter: saturate(1.18) contrast(1.05);
+    }
+
+    .scan-grid {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      opacity: 0.16;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+      background-size: 36px 36px;
+      transform: translateZ(24px);
+      animation: gridDrift 9s linear infinite;
+    }
+
+    .rim {
+      position: absolute;
+      z-index: 7;
+      pointer-events: none;
+      background: rgba(255, 255, 255, 0.58);
+      filter: blur(0.2px);
+      opacity: 0.72;
+    }
+
+    .rim-top {
+      top: 18px;
+      left: 48px;
+      right: 72px;
+      height: 1px;
+    }
+
+    .rim-left {
+      top: 52px;
+      left: 18px;
+      width: 1px;
+      height: 58%;
+    }
+
+    .readout {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 22px;
+      z-index: 9;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(5, 16, 30, 0.33);
+      box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(calc(var(--frost) * 0.82)) saturate(180%);
+    }
+
+    .readout p {
+      margin: 0;
+      color: rgba(242, 248, 255, 0.68);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .readout b {
+      display: block;
+      margin-top: 6px;
+      color: var(--ink);
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .pulse {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, #ffffff 0 4px, transparent 5px),
+        conic-gradient(from var(--angle), var(--cyan), var(--mint), var(--coral), var(--amber), var(--cyan));
+      box-shadow: 0 0 26px rgba(86, 220, 255, 0.34);
+      animation: spinAngle 2.5s linear infinite;
+    }
+
+    .droplet {
+      position: absolute;
+      z-index: 8;
+      width: var(--size);
+      height: var(--size);
+      border: 1px solid rgba(255, 255, 255, 0.33);
+      border-radius: 56% 44% 58% 42%;
+      background:
+        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.76), transparent 18%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04));
+      box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.48),
+        0 10px 28px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(calc(var(--frost) * 0.7));
+      transform: translate3d(var(--x), var(--y), var(--z)) rotate(var(--r));
+      opacity: 0.86;
+      animation: dropletMorph 5.2s ease-in-out infinite;
+      animation-delay: var(--delay);
+    }
+
+    .crystal-shards,
+    .glass-cube,
+    .glass-stack {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transform-style: preserve-3d;
+      opacity: 0;
+      transition: opacity 240ms ease;
+    }
+
+    .shard {
+      position: absolute;
+      width: 42%;
+      height: 32%;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(86, 220, 255, 0.08) 42%, rgba(255, 127, 152, 0.16)),
+        rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+      backdrop-filter: blur(var(--frost));
+      clip-path: polygon(52% 0, 100% 42%, 72% 100%, 16% 86%, 0 28%);
+    }
+
+    .shard:nth-child(1) {
+      left: -7%;
+      top: 16%;
+      transform: translateZ(118px) rotateZ(-19deg) rotateY(28deg);
+    }
+
+    .shard:nth-child(2) {
+      right: -11%;
+      top: 20%;
+      transform: translateZ(144px) rotateZ(18deg) rotateY(-31deg);
+    }
+
+    .shard:nth-child(3) {
+      left: 28%;
+      bottom: -4%;
+      transform: translateZ(132px) rotateZ(8deg) rotateX(32deg);
+    }
+
+    .cube-core {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: 220px;
+      height: 220px;
+      transform-style: preserve-3d;
+      transform: translate(-50%, -50%) translateZ(150px) rotateX(-18deg) rotateY(28deg);
+      animation: cubeIdle 10s linear infinite;
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      background:
+        radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.38), transparent 44%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(86, 220, 255, 0.08));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+      backdrop-filter: blur(var(--frost)) saturate(175%);
+    }
+
+    .face-front {
+      transform: translateZ(110px);
+    }
+
+    .face-back {
+      transform: rotateY(180deg) translateZ(110px);
+    }
+
+    .face-right {
+      transform: rotateY(90deg) translateZ(110px);
+    }
+
+    .face-left {
+      transform: rotateY(-90deg) translateZ(110px);
+    }
+
+    .face-top {
+      transform: rotateX(90deg) translateZ(110px);
+    }
+
+    .face-bottom {
+      transform: rotateX(-90deg) translateZ(110px);
+    }
+
+    .stack-panel {
+      position: absolute;
+      inset: 16%;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.045)),
+        rgba(255, 255, 255, 0.08);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 20px 46px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(var(--frost));
+    }
+
+    .stack-panel:nth-child(1) {
+      transform: translateZ(128px) translate(-62px, -72px) rotateZ(-8deg);
+    }
+
+    .stack-panel:nth-child(2) {
+      transform: translateZ(166px) translate(54px, -8px) rotateZ(7deg);
+    }
+
+    .stack-panel:nth-child(3) {
+      transform: translateZ(210px) translate(-10px, 74px) rotateZ(-2deg);
+    }
+
+    body[data-mode="crystal"] .crystal-shards,
+    body[data-mode="cube"] .glass-cube,
+    body[data-mode="stack"] .glass-stack {
+      opacity: 1;
+    }
+
+    body[data-mode="crystal"] .liquid-display {
+      border-radius: 22px;
+      clip-path: polygon(50% 0, 94% 20%, 100% 65%, 67% 100%, 18% 90%, 0 43%);
+    }
+
+    body[data-mode="cube"] .liquid-display {
+      opacity: 0.42;
+    }
+
+    body[data-mode="stack"] .liquid-display {
+      opacity: 0.78;
+    }
+
+    .float-card {
+      position: absolute;
+      z-index: 3;
+      width: 158px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.095);
+      box-shadow:
+        0 22px 54px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(calc(var(--frost) * 0.8)) saturate(158%);
+      transform-style: preserve-3d;
+      animation: panelDrift 5.4s ease-in-out infinite;
+    }
+
+    .float-card strong {
+      display: block;
+      font-size: 1.45rem;
+      line-height: 1;
+    }
+
+    .float-card span {
+      display: block;
+      margin-top: 8px;
+      color: rgba(235, 244, 252, 0.62);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .float-card i {
+      display: block;
+      width: 100%;
+      height: 6px;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .float-card i::before {
+      display: block;
+      width: var(--fill);
+      height: 100%;
+      content: "";
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--mint));
+      box-shadow: 0 0 18px rgba(86, 220, 255, 0.42);
+    }
+
+    .card-a {
+      left: 3%;
+      top: 15%;
+      transform: translateZ(180px) rotateZ(-8deg);
+    }
+
+    .card-b {
+      right: 2%;
+      bottom: 18%;
+      transform: translateZ(210px) rotateZ(8deg);
+      animation-delay: -1.7s;
+    }
+
+    @property --angle {
+      syntax: "<angle>";
+      inherits: false;
+      initial-value: 0deg;
+    }
+
+    @keyframes spinAngle {
+      to {
+        --angle: 360deg;
+      }
+    }
+
+    @keyframes lightSweep {
+      to {
+        rotate: 360deg;
+      }
+    }
+
+    @keyframes refract {
+      0%,
+      100% {
+        translate: -14% 0;
+      }
+
+      50% {
+        translate: 110% 0;
+      }
+    }
+
+    @keyframes gridDrift {
+      to {
+        background-position: 36px 36px;
+      }
+    }
+
+    @keyframes dropletMorph {
+      0%,
+      100% {
+        border-radius: 56% 44% 58% 42%;
+        translate: 0 0;
+      }
+
+      45% {
+        border-radius: 42% 58% 48% 52%;
+        translate: 0 -14px;
+      }
+    }
+
+    @keyframes cubeIdle {
+      to {
+        transform: translate(-50%, -50%) translateZ(150px) rotateX(342deg) rotateY(388deg);
+      }
+    }
+
+    @keyframes panelDrift {
+      0%,
+      100% {
+        translate: 0 0;
+      }
+
+      50% {
+        translate: 0 -16px;
+      }
+    }
+
+    @media (max-width: 920px) {
+      .preview {
+        grid-template-columns: 1fr;
+        gap: 28px;
+        align-items: start;
+        padding-top: 24px;
+      }
+
+      .deck {
+        width: min(100%, 720px);
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 4.35rem;
+      }
+
+      .scene {
+        min-height: 610px;
+      }
+
+      .glass-rig {
+        width: min(420px, 72vw);
+      }
+    }
+
+    @media (max-width: 560px) {
+      .preview {
+        width: min(100% - 24px, 1200px);
+      }
+
+      .deck {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 3.35rem;
+      }
+
+      .summary {
+        font-size: 0.96rem;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .scene {
+        min-height: 500px;
+        overflow: hidden;
+      }
+
+      .glass-rig {
+        width: min(340px, 82vw);
+      }
+
+      .liquid-display {
+        border-radius: 28px;
+      }
+
+      .readout {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        padding: 13px;
+      }
+
+      .readout b {
+        font-size: 1.55rem;
+      }
+
+      .pulse {
+        width: 46px;
+        height: 46px;
+      }
+
+      .float-card {
+        width: 136px;
+        scale: 0.84;
+      }
+
+      .card-a {
+        left: -24px;
+        top: 8%;
+      }
+
+      .card-b {
+        right: -28px;
+        bottom: 8%;
+      }
+
+      .cube-core {
+        width: 170px;
+        height: 170px;
+      }
+
+      .face-front {
+        transform: translateZ(85px);
+      }
+
+      .face-back {
+        transform: rotateY(180deg) translateZ(85px);
+      }
+
+      .face-right {
+        transform: rotateY(90deg) translateZ(85px);
+      }
+
+      .face-left {
+        transform: rotateY(-90deg) translateZ(85px);
+      }
+
+      .face-top {
+        transform: rotateX(90deg) translateZ(85px);
+      }
+
+      .face-bottom {
+        transform: rotateX(-90deg) translateZ(85px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-mode="liquid">
+  <main class="preview" aria-label="Liquid glass 3D preview">
+    <section class="deck" aria-label="Preview controls">
+      <div class="brand">3D glassmorphism</div>
+      <h1>Liquid Glass</h1>
+      <p class="summary">A floating glass display with liquid surface motion, deep refraction, momentum rotation, and live material controls.</p>
+
+      <div class="mode-list" aria-label="Display modes">
+        <button class="mode-button" type="button" data-mode="liquid" aria-pressed="true">Liquid</button>
+        <button class="mode-button" type="button" data-mode="crystal" aria-pressed="false">Crystal</button>
+        <button class="mode-button" type="button" data-mode="cube" aria-pressed="false">Cube</button>
+        <button class="mode-button" type="button" data-mode="stack" aria-pressed="false">Stack</button>
+      </div>
+
+      <div class="control-stack">
+        <div class="field">
+          <label for="tiltRange">Tilt <output id="tiltOut">85</output></label>
+          <input id="tiltRange" type="range" min="20" max="100" value="85">
+        </div>
+        <div class="field">
+          <label for="frostRange">Frost <output id="frostOut">26</output></label>
+          <input id="frostRange" type="range" min="6" max="42" value="26">
+        </div>
+        <div class="field">
+          <label for="tintRange">Tint <output id="tintOut">18</output></label>
+          <input id="tintRange" type="range" min="6" max="36" value="18">
+        </div>
+        <div class="field">
+          <div class="meter-label">Surface <span id="depthOut">82%</span></div>
+          <div class="depth-row">
+            <button class="icon-button" type="button" id="depthDown" aria-label="Decrease liquid depth">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+            </button>
+            <div class="depth-track" aria-hidden="true"><div class="depth-fill" id="depthFill"></div></div>
+            <button class="icon-button" type="button" id="depthUp" aria-label="Increase liquid depth">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            </button>
+          </div>
+        </div>
+        <button class="auto-button" type="button" id="autoToggle" aria-pressed="true">Auto Spin</button>
+      </div>
+
+      <div class="stats" aria-label="Preview values">
+        <div class="stat"><strong id="modeStat">Liquid</strong><span>Mode</span></div>
+        <div class="stat"><strong id="tiltStat">85</strong><span>Max tilt</span></div>
+        <div class="stat"><strong>1</strong><span>HTML file</span></div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene" aria-label="Interactive 3D liquid glass display">
+      <div class="glass-rig" id="rig">
+        <div class="liquid-display" id="display">
+          <canvas id="liquidCanvas"></canvas>
+          <div class="scan-grid" aria-hidden="true"></div>
+          <div class="rim rim-top" aria-hidden="true"></div>
+          <div class="rim rim-left" aria-hidden="true"></div>
+          <div class="droplet" style="--size: 56px; --x: 38px; --y: 110px; --z: 102px; --r: -18deg; --delay: -0.4s" aria-hidden="true"></div>
+          <div class="droplet" style="--size: 38px; --x: 315px; --y: 78px; --z: 132px; --r: 22deg; --delay: -2s" aria-hidden="true"></div>
+          <div class="droplet" style="--size: 44px; --x: 278px; --y: 320px; --z: 118px; --r: 9deg; --delay: -3.1s" aria-hidden="true"></div>
+          <div class="readout">
+            <p>Surface depth <b id="depthReadout">82%</b></p>
+            <div class="pulse" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <div class="crystal-shards" aria-hidden="true">
+          <div class="shard"></div>
+          <div class="shard"></div>
+          <div class="shard"></div>
+        </div>
+
+        <div class="glass-cube" aria-hidden="true">
+          <div class="cube-core">
+            <div class="face face-front"></div>
+            <div class="face face-back"></div>
+            <div class="face face-right"></div>
+            <div class="face face-left"></div>
+            <div class="face face-top"></div>
+            <div class="face face-bottom"></div>
+          </div>
+        </div>
+
+        <div class="glass-stack" aria-hidden="true">
+          <div class="stack-panel"></div>
+          <div class="stack-panel"></div>
+          <div class="stack-panel"></div>
+        </div>
+      </div>
+
+      <div class="float-card card-a" style="--fill: 78%" aria-hidden="true">
+        <strong>1.42</strong>
+        <span>Refraction</span>
+        <i></i>
+      </div>
+      <div class="float-card card-b" style="--fill: 91%" aria-hidden="true">
+        <strong>0.68</strong>
+        <span>Viscosity</span>
+        <i></i>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const root = document.documentElement;
+    const body = document.body;
+    const scene = document.querySelector("#scene");
+    const canvas = document.querySelector("#liquidCanvas");
+    const ctx = canvas.getContext("2d", { alpha: true });
+    const depthFill = document.querySelector("#depthFill");
+    const depthOut = document.querySelector("#depthOut");
+    const depthReadout = document.querySelector("#depthReadout");
+    const tiltRange = document.querySelector("#tiltRange");
+    const frostRange = document.querySelector("#frostRange");
+    const tintRange = document.querySelector("#tintRange");
+    const tiltOut = document.querySelector("#tiltOut");
+    const frostOut = document.querySelector("#frostOut");
+    const tintOut = document.querySelector("#tintOut");
+    const modeStat = document.querySelector("#modeStat");
+    const tiltStat = document.querySelector("#tiltStat");
+    const autoToggle = document.querySelector("#autoToggle");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const colors = [
+      [86, 220, 255],
+      [94, 255, 186],
+      [255, 127, 152],
+      [255, 211, 108],
+      [169, 145, 255]
+    ];
+
+    const state = {
+      mode: "liquid",
+      auto: true,
+      depth: 0.82,
+      tilt: 0.85,
+      frost: 26,
+      tint: 0.18,
+      pointerX: 0.5,
+      pointerY: 0.48,
+      dragging: false,
+      lastX: 0,
+      lastY: 0,
+      rotX: 58,
+      rotY: -28,
+      rotZ: -18,
+      velX: 0,
+      velY: 0,
+      width: 1,
+      height: 1,
+      dpr: 1
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      state.width = Math.max(1, Math.floor(rect.width));
+      state.height = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(state.width * state.dpr);
+      canvas.height = Math.floor(state.height * state.dpr);
+      ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    }
+
+    function setMaterial() {
+      root.style.setProperty("--frost", `${state.frost}px`);
+      root.style.setProperty("--glass-alpha", state.tint.toFixed(2));
+      tiltOut.value = Math.round(state.tilt * 100);
+      frostOut.value = Math.round(state.frost);
+      tintOut.value = Math.round(state.tint * 100);
+      tiltStat.textContent = Math.round(state.tilt * 100);
+      depthOut.textContent = `${Math.round(state.depth * 100)}%`;
+      depthReadout.textContent = `${Math.round(state.depth * 100)}%`;
+      depthFill.style.width = `${Math.round(state.depth * 100)}%`;
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      body.dataset.mode = mode;
+      modeStat.textContent = mode[0].toUpperCase() + mode.slice(1);
+      document.querySelectorAll(".mode-button").forEach((button) => {
+        button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");
+      });
+    }
+
+    function updatePointer(event) {
+      const rect = scene.getBoundingClientRect();
+      state.pointerX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+      state.pointerY = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+      root.style.setProperty("--mx", `${Math.round(state.pointerX * 100)}%`);
+      root.style.setProperty("--my", `${Math.round(state.pointerY * 100)}%`);
+    }
+
+    function applyTransform(time) {
+      if (state.auto && !state.dragging && !reduceMotion.matches) {
+        state.rotY += 0.18;
+        state.rotX += Math.sin(time * 0.65) * 0.035;
+      }
+
+      state.rotX += state.velX;
+      state.rotY += state.velY;
+      state.velX *= 0.92;
+      state.velY *= 0.92;
+
+      const extreme = 85 * state.tilt;
+      const pointerTiltY = (state.pointerX - 0.5) * extreme;
+      const pointerTiltX = -(state.pointerY - 0.5) * extreme;
+      const rx = clamp(state.rotX + pointerTiltX, -96, 96);
+      const ry = state.rotY + pointerTiltY;
+      const rz = state.rotZ + Math.sin(time * 0.5) * 2.2;
+
+      root.style.setProperty("--rx", `${rx.toFixed(2)}deg`);
+      root.style.setProperty("--ry", `${ry.toFixed(2)}deg`);
+      root.style.setProperty("--rz", `${rz.toFixed(2)}deg`);
+      root.style.setProperty("--tilt-shadow-x", `${(state.pointerX - 0.5) * -58}px`);
+      root.style.setProperty("--tilt-shadow-y", `${28 + state.pointerY * 28}px`);
+    }
+
+    function waveY(x, time, layer) {
+      const h = state.height;
+      const base = h * (1.05 - state.depth * 0.64);
+      const cursorPull = (state.pointerY - 0.5) * h * 0.08;
+      return base + cursorPull +
+        Math.sin(x * 0.012 + time * 1.35 + layer) * 22 +
+        Math.sin(x * 0.027 - time * 0.86 + layer * 1.7) * 11 +
+        Math.cos(x * 0.006 + time * 1.08) * 16;
+    }
+
+    function radial(x, y, radius, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      g.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`);
+      g.addColorStop(0.44, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * 0.36})`);
+      g.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+      return g;
+    }
+
+    function drawCanvas(time) {
+      const w = state.width;
+      const h = state.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, "rgba(9, 24, 44, 0.82)");
+      bg.addColorStop(0.48, "rgba(11, 29, 51, 0.36)");
+      bg.addColorStop(1, "rgba(7, 10, 25, 0.8)");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      const blobCount = state.mode === "liquid" ? 11 : 7;
+      for (let i = 0; i < blobCount; i += 1) {
+        const drift = time * (0.18 + i * 0.024);
+        const wobble = state.mode === "crystal" ? 0.26 : 0.42;
+        const x = w * (0.5 + Math.sin(drift + i * 1.63) * wobble) + (state.pointerX - 0.5) * 46;
+        const y = h * (0.52 + Math.cos(drift * 1.24 + i) * 0.36) + (state.pointerY - 0.5) * 40;
+        const r = Math.max(w, h) * (0.22 + (i % 4) * 0.04);
+        ctx.fillStyle = radial(x, y, r, colors[i % colors.length], 0.34);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      const fluid = ctx.createLinearGradient(0, h * 0.22, w, h);
+      fluid.addColorStop(0, "rgba(86, 220, 255, 0.84)");
+      fluid.addColorStop(0.4, "rgba(94, 255, 186, 0.72)");
+      fluid.addColorStop(0.72, "rgba(255, 127, 152, 0.68)");
+      fluid.addColorStop(1, "rgba(169, 145, 255, 0.7)");
+
+      const layers = state.mode === "crystal" ? 3 : 5;
+      for (let layer = 0; layer < layers; layer += 1) {
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        if (state.mode === "crystal") {
+          const step = w / 9;
+          for (let x = 0; x <= w + step; x += step) {
+            const y = waveY(x, time, layer * 1.2) + layer * 18;
+            ctx.lineTo(x, y);
+          }
+        } else {
+          for (let x = 0; x <= w + 8; x += 8) {
+            ctx.lineTo(x, waveY(x, time, layer * 1.22) + layer * 13);
+          }
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = fluid;
+        ctx.globalAlpha = 0.22 + layer * 0.105;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      for (let i = 0; i < 4; i += 1) {
+        ctx.beginPath();
+        for (let x = 0; x <= w + 8; x += 8) {
+          const y = waveY(x, time, i * 1.3) + i * 8;
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        const shine = ctx.createLinearGradient(0, 0, w, 0);
+        shine.addColorStop(0, "rgba(255, 255, 255, 0)");
+        shine.addColorStop(clamp(state.pointerX, 0.18, 0.82), "rgba(255, 255, 255, 0.76)");
+        shine.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.strokeStyle = shine;
+        ctx.lineWidth = i === 0 ? 2.4 : 1.4;
+        ctx.globalAlpha = 0.58 - i * 0.1;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "overlay";
+      for (let y = 0; y < h; y += 4) {
+        ctx.fillStyle = y % 8 === 0 ? "rgba(255,255,255,0.044)" : "rgba(0,0,0,0.026)";
+        ctx.fillRect(0, y, w, 1);
+      }
+      ctx.restore();
+    }
+
+    function animate(ms) {
+      const time = ms / 1000;
+      if (!reduceMotion.matches) {
+        applyTransform(time);
+      }
+      drawCanvas(time);
+      requestAnimationFrame(animate);
+    }
+
+    scene.addEventListener("pointermove", (event) => {
+      updatePointer(event);
+      if (!state.dragging) return;
+      const dx = event.clientX - state.lastX;
+      const dy = event.clientY - state.lastY;
+      state.rotY += dx * 0.36;
+      state.rotX -= dy * 0.3;
+      state.velY = dx * 0.045;
+      state.velX = -dy * 0.038;
+      state.lastX = event.clientX;
+      state.lastY = event.clientY;
+    }, { passive: true });
+
+    scene.addEventListener("pointerdown", (event) => {
+      state.dragging = true;
+      state.auto = false;
+      autoToggle.setAttribute("aria-pressed", "false");
+      state.lastX = event.clientX;
+      state.lastY = event.clientY;
+      updatePointer(event);
+      scene.setPointerCapture(event.pointerId);
+    });
+
+    scene.addEventListener("pointerup", (event) => {
+      state.dragging = false;
+      scene.releasePointerCapture(event.pointerId);
+    });
+
+    scene.addEventListener("pointerleave", () => {
+      state.pointerX = 0.5;
+      state.pointerY = 0.48;
+      root.style.setProperty("--mx", "50%");
+      root.style.setProperty("--my", "48%");
+    });
+
+    document.querySelectorAll(".mode-button").forEach((button) => {
+      button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+
+    tiltRange.addEventListener("input", () => {
+      state.tilt = Number(tiltRange.value) / 100;
+      setMaterial();
+    });
+
+    frostRange.addEventListener("input", () => {
+      state.frost = Number(frostRange.value);
+      setMaterial();
+    });
+
+    tintRange.addEventListener("input", () => {
+      state.tint = Number(tintRange.value) / 100;
+      setMaterial();
+    });
+
+    document.querySelector("#depthDown").addEventListener("click", () => {
+      state.depth = clamp(state.depth - 0.06, 0.38, 0.96);
+      setMaterial();
+    });
+
+    document.querySelector("#depthUp").addEventListener("click", () => {
+      state.depth = clamp(state.depth + 0.06, 0.38, 0.96);
+      setMaterial();
+    });
+
+    autoToggle.addEventListener("click", () => {
+      state.auto = !state.auto;
+      autoToggle.setAttribute("aria-pressed", state.auto ? "true" : "false");
+    });
+
+    new ResizeObserver(resizeCanvas).observe(canvas);
+    window.addEventListener("resize", resizeCanvas, { passive: true });
+    resizeCanvas();
+    setMaterial();
+    setMode("liquid");
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

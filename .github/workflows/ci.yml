@@ -26,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest pytest-asyncio hypothesis
           # Optional cloud packages – failure is OK
-          pip install supabase twilio streamlit-back-camera-input || true
+          pip install supabase twilio streamlit-back-camera-input streamlit-searchbox || true
 
       - name: Lint with flake8
         run: |
