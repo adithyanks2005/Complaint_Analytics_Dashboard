@@ -9,12 +9,16 @@ from backend.database import read_complaints_df
 
 def load_complaints() -> pd.DataFrame:
     df = read_complaints_df().copy()
-    created_date = pd.to_datetime(df["created_date"], errors="coerce", utc=True).dt.tz_localize(None)
-    closed_date = pd.to_datetime(df["closed_date"], errors="coerce", utc=True).dt.tz_localize(None)
+    created_date = pd.to_datetime(df["created_date"], errors="coerce")
+    closed_date = pd.to_datetime(df["closed_date"], errors="coerce")
+    closure_days = (closed_date - created_date).dt.days
+    # Only count closure days for actually-closed complaints
+    mask_not_closed = df["status"] != "Closed"
+    closure_days = closure_days.where(~mask_not_closed, other=pd.NA)
     return df.assign(
         created_date=created_date,
         closed_date=closed_date,
-        closure_days=(closed_date - created_date).dt.days,
+        closure_days=closure_days,
     )
 
 
@@ -22,7 +26,10 @@ def filter_complaints(
     df: pd.DataFrame,
     start_date: date | None = None,
     end_date:   date | None = None,
+    state:      str  | None = None,
+    district:   str  | None = None,
     area:       str  | None = None,
+    pincode:    str  | None = None,
     category:   str  | None = None,
     status:     str  | None = None,
 ) -> pd.DataFrame:
@@ -31,8 +38,14 @@ def filter_complaints(
         filtered = filtered[filtered["created_date"].dt.date >= start_date]
     if end_date:
         filtered = filtered[filtered["created_date"].dt.date <= end_date]
+    if state and state != "All":
+        filtered = filtered[filtered["state"] == state]
+    if district and district != "All":
+        filtered = filtered[filtered["district"] == district]
     if area and area != "All":
         filtered = filtered[filtered["area"] == area]
+    if pincode and pincode != "All":
+        filtered = filtered[filtered["pincode"] == pincode]
     if category and category != "All":
         filtered = filtered[filtered["category"] == category]
     if status and status != "All":
@@ -42,13 +55,22 @@ def filter_complaints(
 
 def get_options(df: pd.DataFrame) -> dict[str, list[str]]:
     return {
+        "states":     sorted(df["state"].dropna().unique().tolist()),
+        "districts":  sorted(df["district"].dropna().unique().tolist()),
         "areas":      sorted(df["area"].dropna().unique().tolist()),
+        "pincodes":   sorted(df["pincode"].dropna().unique().tolist()),
         "categories": sorted(df["category"].dropna().unique().tolist()),
         "statuses":   sorted(df["status"].dropna().unique().tolist()),
     }
 
 
 def summary_metrics(df: pd.DataFrame) -> dict[str, float | int]:
+    if "closure_days" not in df.columns:
+        df = df.copy()
+        df["closure_days"] = (
+            pd.to_datetime(df.get("closed_date"), errors="coerce")
+            - pd.to_datetime(df.get("created_date"), errors="coerce")
+        ).dt.days
     total     = int(len(df))
     closed_df = df[df["status"] == "Closed"]
     open_df   = df[df["status"] != "Closed"]
@@ -113,15 +135,10 @@ def category_summary(df: pd.DataFrame) -> list[dict[str, object]]:
 
 def records(df: pd.DataFrame) -> list[dict[str, object]]:
     output = df.copy()
-    # Format date columns as ISO strings; NaT → None
-    output = output.assign(
-        **{
-            col: output[col].dt.strftime("%Y-%m-%d").where(
-                output[col].notna(), None
-            )
-            for col in ["created_date", "closed_date"]
-        }
-    )
-    # Drop internal computed column — not part of the public API contract
+    # Format date columns as ISO strings; NaT becomes None.
+    for col in ["created_date", "closed_date"]:
+        output[col] = output[col].dt.strftime("%Y-%m-%d")
+        output[col] = output[col].where(output[col].notna(), None)
+    # Drop internal computed column; it is not part of the public API contract.
     output = output.drop(columns=["closure_days"], errors="ignore")
     return output.to_dict(orient="records")

@@ -31,3 +31,8 @@ Thumbs.db
 .vscode/
 .idea/
 .vercel
+
+# Vercel Generated
+pyproject.toml
+uv.lock
+

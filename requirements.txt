@@ -3,3 +3,8 @@ pandas==2.2.3
 plotly==5.24.1
 python-dotenv==1.0.1
 supabase==2.10.0
+twilio==9.3.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
+requests>=2.31.0
+streamlit-searchbox==0.1.20

@@ -1,7 +1,0 @@
-id,created_date,closed_date,area,category,priority,status,description
-CMP-101,2025-01-01,2025-01-05,North Zone,Water Supply,High,Closed,Leakage in pipe
-CMP-102,2025-02-15,2025-02-20,South Zone,Road Damage,Medium,Closed,Pothole near school
-CMP-103,2025-03-10,2025-03-12,East Zone,Electricity,Low,Closed,Street light flickering
-CMP-104,2025-04-05,2025-04-08,West Zone,Sanitation,Medium,Closed,Overflowing garbage bin
-CMP-105,2025-05-20,2025-05-22,Central District,Waste Management,High,Closed,Illegal dumping near park
-CMP-106,2025-06-15,,North Zone,Public Safety,High,Pending,Missing traffic signs
