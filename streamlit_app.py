@@ -1,3 +1,4 @@
+import sys
 """Streamlit Cloud entrypoint.
 
 The maintained UI lives in frontend/streamlit_app.py. This wrapper normalizes
