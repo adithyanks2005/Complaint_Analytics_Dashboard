@@ -15,10 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 5
-      - name: Restore complete source
+          fetch-depth: 1
+      - name: Restore known-good source
         run: |
-          git checkout HEAD~3 -- streamlit_app.py
+          git fetch origin 9b2b1a65cdf97a4c5e1d764e0b3700fab9ccaeef --depth=1
+          git checkout 9b2b1a65cdf97a4c5e1d764e0b3700fab9ccaeef -- streamlit_app.py
           python - <<'PY'
           from pathlib import Path
           p = Path('streamlit_app.py')
