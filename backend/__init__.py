@@ -3,8 +3,8 @@
 from datetime import date as _date
 import builtins as _builtins
 
-# The legacy Streamlit entrypoint references ``date`` without importing it.
-# The backend package is imported before the sidebar is rendered, so provide
-# the missing builtin until the entrypoint is updated with a direct import.
+# Keep legacy Streamlit entrypoints compatible while all pages migrate to
+# explicit datetime imports. The backend package is imported before widgets
+# render, so exposing ``date`` here prevents a stale entrypoint from crashing.
 if not hasattr(_builtins, "date"):
     _builtins.date = _date
