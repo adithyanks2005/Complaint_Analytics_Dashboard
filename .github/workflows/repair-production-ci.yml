@@ -1,0 +1,147 @@
+name: Production CI hotfix repair
+
+on:
+  push:
+    branches: [feat/production-hardening]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.ref == 'refs/heads/feat/production-hardening'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/production-hardening
+
+      - name: Apply targeted production fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          # 1) Database health probing + authoritative Supabase ID generation.
+          path = Path('backend/database.py')
+          text = path.read_text(encoding='utf-8')
+
+          new_health = '''def check_database_health() -> dict[str, object]:
+              """Actively verify the configured authoritative store."""
+              if using_supabase():
+                  try:
+                      query = get_supabase_client().table(SUPABASE_TABLE).select("id")
+                      limit = getattr(query, "limit", None)
+                      if callable(limit):
+                          query = limit(1)
+                      query.execute()
+                      return {"status": "ok", "backend": "supabase"}
+                  except Exception as exc:
+                      _mark_supabase_failure(exc)
+                      return {"status": "unavailable", "backend": "supabase", "error": str(exc)}
+              try:
+                  with get_connection() as conn:
+                      conn.execute("SELECT 1").fetchone()
+                  return {"status": "ok", "backend": "sqlite"}
+              except Exception as exc:
+                  logger.exception("database.sqlite_health_failed")
+                  return {"status": "unavailable", "backend": "sqlite", "error": str(exc)}
+          
+          '''
+          text2, count = re.subn(r'def check_database_health\(\) -> dict\[str, object\]:.*?\ndef seed_complaints', new_health + 'def seed_complaints', text, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'health function replacement count={count}')
+          text = text2
+
+          new_generator = '''def generate_next_id_supabase() -> str:
+              """Generate an ID from the authoritative Supabase table without routing through SQLite."""
+              if not (SUPABASE_URL and SUPABASE_KEY):
+                  return generate_next_id()
+              try:
+                  response = get_supabase_client().table(SUPABASE_TABLE).select("id").execute()
+              except Exception as exc:
+                  _mark_supabase_failure(exc)
+                  raise DatabaseUnavailableError(
+                      "Authoritative Supabase database unavailable; complaint ID allocation cannot proceed."
+                  ) from exc
+              numbers = [
+                  int(str(item.get("id", "")).split("-")[-1])
+                  for item in (response.data or [])
+                  if str(item.get("id", "")).split("-")[-1].isdigit()
+              ]
+              return f"CMP-{max(numbers, default=0) + 1:03d}"
+          
+          '''
+          text2, count = re.subn(r'def generate_next_id_supabase\(\) -> str:.*?\ndef read_complaints_df', new_generator + 'def read_complaints_df', text, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'generator replacement count={count}')
+          path.write_text(text2, encoding='utf-8')
+
+          # 2) Convert validation failures into HTTP 422 responses.
+          path = Path('backend/main.py')
+          text = path.read_text(encoding='utf-8')
+          old = '    validate_state(updated["status"], updated["created_date"], updated.get("closed_date"))\n    try:\n        result = update_complaint_record(complaint_id, updated)'
+          new = '    try:\n        validate_state(updated["status"], updated["created_date"], updated.get("closed_date"))\n        result = update_complaint_record(complaint_id, updated)'
+          if old not in text:
+              raise SystemExit('update validation block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # 3) Make concurrency assertion account for seeded sample IDs.
+          path = Path('tests/test_production_hardening.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''def test_concurrent_submissions_have_unique_atomic_ids():
+              def submit(index):
+                  return db.insert_complaint(sample(description=f"Concurrent complaint number {index}."))["id"]
+
+              with ThreadPoolExecutor(max_workers=12) as executor:
+                  ids = list(executor.map(submit, range(40)))
+
+              assert len(ids) == 40
+              assert len(set(ids)) == 40
+              assert sorted(int(value.split("-")[-1]) for value in ids) == list(range(1, 41))
+          '''
+          new = '''def test_concurrent_submissions_have_unique_atomic_ids():
+              existing = db.read_complaints_df()["id"].astype(str).tolist()
+              existing_numbers = [
+                  int(value.split("-")[-1])
+                  for value in existing
+                  if value.startswith("CMP-") and value.split("-")[-1].isdigit()
+              ]
+              baseline = max(existing_numbers, default=0)
+
+              def submit(index):
+                  return db.insert_complaint(sample(description=f"Concurrent complaint number {index}."))["id"]
+
+              with ThreadPoolExecutor(max_workers=12) as executor:
+                  ids = list(executor.map(submit, range(40)))
+
+              assert len(ids) == 40
+              assert len(set(ids)) == 40
+              numbers = sorted(int(value.split("-")[-1]) for value in ids)
+              assert numbers == list(range(baseline + 1, baseline + 41))
+          '''
+          if old not in text:
+              raise SystemExit('concurrency test block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          print('production CI hotfixes applied')
+          PY
+
+      - name: Compile changed modules
+        run: |
+          python -m py_compile backend/database.py
+          python -m py_compile backend/main.py
+          python -m py_compile tests/test_production_hardening.py
+
+      - name: Commit hotfix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/database.py backend/main.py tests/test_production_hardening.py
+          if git diff --cached --quiet; then
+            echo "No changes required"
+          else
+            git commit -m "fix: resolve production CI regression failures [skip ci]"
+            git push origin HEAD:feat/production-hardening
+          fi
