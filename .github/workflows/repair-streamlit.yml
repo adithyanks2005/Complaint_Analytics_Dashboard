@@ -1,0 +1,49 @@
+name: Repair Streamlit startup
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Repair missing sys import
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("streamlit_app.py")
+          text = path.read_text(encoding="utf-8")
+          lines = text.splitlines()
+
+          if not any(line.strip() == "import sys" for line in lines[:20]):
+              insert_at = 1 if lines and lines[0].startswith("from pathlib import Path") else 0
+              lines.insert(insert_at, "import sys")
+              path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+              print("Added missing import sys")
+          else:
+              print("import sys already present")
+          PY
+
+      - name: Compile check
+        run: python -m py_compile streamlit_app.py
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app.py
+          if git diff --cached --quiet; then
+            echo "No repair needed"
+          else
+            git commit -m "fix: repair Streamlit startup NameError [skip ci]"
+            git push
+          fi
