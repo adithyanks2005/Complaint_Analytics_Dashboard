@@ -22,16 +22,16 @@ CREATE TABLE IF NOT EXISTS complaints (
 
 -- Repair legacy rows before enforcing the state invariants.
 UPDATE complaints
+SET status = 'Pending', closed_date = NULL
+WHERE status IS NULL OR status NOT IN ('Pending', 'In Progress', 'Closed');
+
+UPDATE complaints
 SET closed_date = NULL
-WHERE status IS NULL OR status <> 'Closed';
+WHERE status <> 'Closed';
 
 UPDATE complaints
 SET status = 'Pending', closed_date = NULL
 WHERE status = 'Closed' AND closed_date IS NULL;
-
-UPDATE complaints
-SET status = 'Pending'
-WHERE status NOT IN ('Pending', 'In Progress', 'Closed');
 
 UPDATE complaints
 SET priority = NULL
@@ -71,18 +71,26 @@ ALTER TABLE complaints
 -- Database-owned, atomic public complaint ID generation.
 CREATE SEQUENCE IF NOT EXISTS complaint_id_seq;
 
-SELECT setval(
-    'complaint_id_seq',
-    GREATEST(
-        COALESCE((
-            SELECT MAX((regexp_match(id, '^CMP-([0-9]+)$'))[1]::BIGINT)
-            FROM complaints
-            WHERE id ~ '^CMP-[0-9]+$'
-        ), 0),
+-- Initialize the sequence safely for both empty and populated databases.
+DO $$
+DECLARE
+    highest_id BIGINT;
+BEGIN
+    SELECT COALESCE(
+        MAX((regexp_match(id, '^CMP-([0-9]+)$'))[1]::BIGINT),
         0
-    ),
-    true
-);
+    )
+    INTO highest_id
+    FROM complaints
+    WHERE id ~ '^CMP-[0-9]+$';
+
+    IF highest_id = 0 THEN
+        PERFORM setval('complaint_id_seq', 1, false);
+    ELSE
+        PERFORM setval('complaint_id_seq', highest_id, true);
+    END IF;
+END
+$$;
 
 CREATE OR REPLACE FUNCTION assign_complaint_id()
 RETURNS trigger
@@ -102,8 +110,6 @@ BEFORE INSERT ON complaints
 FOR EACH ROW
 EXECUTE FUNCTION assign_complaint_id();
 
--- Keep service-role access available while preventing accidental anonymous
--- access if the table is exposed through PostgREST.
 ALTER TABLE complaints ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS complaints_service_role_all ON complaints;
