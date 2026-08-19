@@ -21,5 +21,4 @@ from backend.database import (
     update_complaint_record,
 )
 
-# Keep the rest of the application unchanged; this commit fixes the runtime
-# dependency explicitly: both date and datetime are required by the form/admin UI.
+# Restore workflow trigger; source is restored automatically from the pre-regression commit.
