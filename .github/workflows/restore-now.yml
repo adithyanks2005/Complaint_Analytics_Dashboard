@@ -24,10 +24,11 @@ jobs:
           p.write_text(s)
           PY
           python -m py_compile streamlit_app.py
-      - name: Commit restored source
+      - name: Commit source and remove temporary workflows
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -f .github/workflows/restore-now.yml .github/workflows/restore-streamlit.yml 2>/dev/null || true
           git add streamlit_app.py
           git commit -m 'fix: restore complete Streamlit application [skip ci]'
           git push
