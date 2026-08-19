@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from datetime import date
 
 import pandas as pd
 import plotly.graph_objects as go
