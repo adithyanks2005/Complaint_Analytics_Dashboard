@@ -284,8 +284,8 @@ def update_complaint(complaint_id: str, payload: ComplaintUpdate):
     updated = {**existing, **payload.model_dump(exclude_unset=True)}
     if payload.status is not None and payload.status != "Closed":
         updated["closed_date"] = None
-    validate_state(updated["status"], updated["created_date"], updated.get("closed_date"))
     try:
+        validate_state(updated["status"], updated["created_date"], updated.get("closed_date"))
         result = update_complaint_record(complaint_id, updated)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

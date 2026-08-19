@@ -33,6 +33,14 @@ def isolated_sqlite(tmp_path, monkeypatch):
 
 
 def test_concurrent_submissions_have_unique_atomic_ids():
+    existing = db.read_complaints_df()["id"].astype(str).tolist()
+    existing_numbers = [
+        int(value.split("-")[-1])
+        for value in existing
+        if value.startswith("CMP-") and value.split("-")[-1].isdigit()
+    ]
+    baseline = max(existing_numbers, default=0)
+
     def submit(index):
         return db.insert_complaint(sample(description=f"Concurrent complaint number {index}."))["id"]
 
@@ -41,7 +49,8 @@ def test_concurrent_submissions_have_unique_atomic_ids():
 
     assert len(ids) == 40
     assert len(set(ids)) == 40
-    assert sorted(int(value.split("-")[-1]) for value in ids) == list(range(1, 41))
+    numbers = sorted(int(value.split("-")[-1]) for value in ids)
+    assert numbers == list(range(baseline + 1, baseline + 41))
 
 
 def test_state_invariants_are_enforced_by_backend():

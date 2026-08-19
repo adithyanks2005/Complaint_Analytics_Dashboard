@@ -132,7 +132,11 @@ def check_database_health() -> dict[str, object]:
     """Actively verify the configured authoritative store."""
     if using_supabase():
         try:
-            get_supabase_client().table(SUPABASE_TABLE).select("id").limit(1).execute()
+            query = get_supabase_client().table(SUPABASE_TABLE).select("id")
+            limit = getattr(query, "limit", None)
+            if callable(limit):
+                query = limit(1)
+            query.execute()
             return {"status": "ok", "backend": "supabase"}
         except Exception as exc:
             _mark_supabase_failure(exc)
@@ -144,7 +148,6 @@ def check_database_health() -> dict[str, object]:
     except Exception as exc:
         logger.exception("database.sqlite_health_failed")
         return {"status": "unavailable", "backend": "sqlite", "error": str(exc)}
-
 
 def seed_complaints(connection: sqlite3.Connection) -> None:
     if not CSV_PATH.exists():
@@ -255,8 +258,22 @@ def generate_next_id() -> str:
 
 
 def generate_next_id_supabase() -> str:
-    return generate_next_id()
-
+    """Generate an ID from the authoritative Supabase table without routing through SQLite."""
+    if not (SUPABASE_URL and SUPABASE_KEY):
+        return generate_next_id()
+    try:
+        response = get_supabase_client().table(SUPABASE_TABLE).select("id").execute()
+    except Exception as exc:
+        _mark_supabase_failure(exc)
+        raise DatabaseUnavailableError(
+            "Authoritative Supabase database unavailable; complaint ID allocation cannot proceed."
+        ) from exc
+    numbers = [
+        int(str(item.get("id", "")).split("-")[-1])
+        for item in (response.data or [])
+        if str(item.get("id", "")).split("-")[-1].isdigit()
+    ]
+    return f"CMP-{max(numbers, default=0) + 1:03d}"
 
 def read_complaints_df() -> pd.DataFrame:
     init_db()
