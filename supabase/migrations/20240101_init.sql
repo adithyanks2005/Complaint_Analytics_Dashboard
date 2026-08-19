@@ -71,18 +71,26 @@ ALTER TABLE complaints
 -- Database-owned, atomic public complaint ID generation.
 CREATE SEQUENCE IF NOT EXISTS complaint_id_seq;
 
-SELECT setval(
-    'complaint_id_seq',
-    GREATEST(
-        COALESCE((
-            SELECT MAX((regexp_match(id, '^CMP-([0-9]+)$'))[1]::BIGINT)
-            FROM complaints
-            WHERE id ~ '^CMP-[0-9]+$'
-        ), 0),
+-- Initialize the sequence safely for both empty and populated databases.
+DO $$
+DECLARE
+    highest_id BIGINT;
+BEGIN
+    SELECT COALESCE(
+        MAX((regexp_match(id, '^CMP-([0-9]+)$'))[1]::BIGINT),
         0
-    ),
-    true
-);
+    )
+    INTO highest_id
+    FROM complaints
+    WHERE id ~ '^CMP-[0-9]+$';
+
+    IF highest_id = 0 THEN
+        PERFORM setval('complaint_id_seq', 1, false);
+    ELSE
+        PERFORM setval('complaint_id_seq', highest_id, true);
+    END IF;
+END
+$$;
 
 CREATE OR REPLACE FUNCTION assign_complaint_id()
 RETURNS trigger
