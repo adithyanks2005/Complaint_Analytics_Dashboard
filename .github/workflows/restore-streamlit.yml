@@ -1,7 +1,6 @@
 name: Restore Streamlit file
 
 on:
-  workflow_dispatch:
   push:
     paths:
       - streamlit_app.py
@@ -11,21 +10,20 @@ permissions:
 
 jobs:
   restore:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
+    if: !contains(github.event.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-      - name: Restore previous Streamlit source
+          fetch-depth: 4
+      - name: Restore complete source
         run: |
-          git checkout HEAD^ -- streamlit_app.py
+          git checkout HEAD~2 -- streamlit_app.py
           python - <<'PY'
           from pathlib import Path
           p = Path('streamlit_app.py')
           s = p.read_text()
-          if 'from datetime import date, datetime' not in s:
-              s = s.replace('from datetime import date\n', 'from datetime import date, datetime\n', 1)
+          s = s.replace('from datetime import date\n', 'from datetime import date, datetime\n', 1)
           p.write_text(s)
           PY
           python -m py_compile streamlit_app.py
